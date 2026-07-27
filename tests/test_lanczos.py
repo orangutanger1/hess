@@ -83,3 +83,28 @@ def test_zero_seed_vector_yields_nothing():
     n = 5
     states = list(lanczos_iter(lambda v: v, torch.zeros(n), k_max=3))
     assert states == []
+
+
+def test_reorthogonalization_is_required_for_orthonormality_at_high_iteration_count():
+    """Classical Lanczos loses orthogonality without reorthogonalization once Ritz values converge.
+
+    This test uses a larger dimension (n=150) with many iterations (k_max=140)
+    and a spread spectrum to force eigenvalue convergence and accumulate rounding
+    error. Without the full reorthogonalization loop, orthogonality is lost.
+    """
+    n = 150
+    # Create a matrix with spread spectrum: eigenvalues from 0.1 to 100
+    # Use diagonal matrix conjugated by random orthogonal to avoid trivial structure
+    eigvals = torch.logspace(-1, 2, n)  # 0.1 to 100
+    V, _ = torch.linalg.qr(torch.randn(n, n))
+    A = V @ torch.diag(eigvals) @ V.T
+
+    b = torch.randn(n)
+    k_max = 140  # Run for most of the dimension to force convergence and error accumulation
+
+    state = list(lanczos_iter(lambda v: A @ v, b, k_max=k_max))[-1]
+
+    QtQ = state.Q.T @ state.Q
+
+    # Assert orthonormality with tight tolerance matching other tests
+    torch.testing.assert_close(QtQ, torch.eye(QtQ.shape[0]), atol=1e-10, rtol=0)
