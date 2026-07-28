@@ -115,7 +115,12 @@ def test_recycled_basis_never_exceeds_m_recycle():
     for _ in range(4):
         b.build(lambda v: A @ v, torch.randn(n))
 
-    assert b.U is not None and b.U.shape[1] <= 3
+    # `== 3`, not `<= 3`: `topk(score, min(m_recycle, score.numel()))` in
+    # `_recycle` makes the width <= m_recycle by construction, so `<= 3` cannot
+    # fail -- a regression would raise out of `topk` rather than return a wider
+    # basis. 3 is the value actually reachable here (score.numel() is the basis
+    # width, always >= 3 at k_max=10), so asserting it is a live check.
+    assert b.U is not None and b.U.shape[1] == 3
 
 
 def test_reset_clears_recycled_state():
@@ -195,17 +200,31 @@ def test_recycled_reported_residual_is_optimistic_vs_true_dense_residual():
     assert ratio < 10.0
 
 
-def test_contribution_ranking_beats_large_eig_on_slowly_changing_operator():
-    """rank_by="large_eig" is the ranking the plan explicitly names as wrong
-    (it weights by 1/lambda, so it retains the directions the Newton step
-    *least* depends on), and the rationale for the "contribution" default is
-    that it avoids exactly this. A bare hvp-reduction assertion does not
-    discriminate between the two: measured sums of n_hvp over steps 1-4 on
-    the slowly-drifting operator are 46-60 (contribution) vs 72-76
-    (large_eig) out of an 80 fresh-rebuild ceiling, across 6 seeds. Assert
-    the separation directly, confirmed to hold on more than one seed (worst
-    observed ratio is 59/72 = 0.819, so 0.9 has real headroom without being
-    knife-edge).
+@pytest.mark.parametrize("rank_by", ["contribution", "small_eig"])
+def test_large_eig_ranking_is_the_worst_of_the_three(rank_by):
+    """rank_by="large_eig" is the ranking the plan explicitly names as wrong:
+    the Newton step weights each eigendirection by 1/lambda, so keeping the
+    *largest* |lambda| retains the directions the step least depends on. Both
+    other rankings must beat it, and a bare hvp-reduction assertion does not
+    discriminate -- large_eig also reduces hvps versus a fresh rebuild. Assert
+    the separation directly.
+
+    Measured sums of n_hvp over steps 1-4 on the slowly-drifting operator,
+    out of an 80 fresh-rebuild ceiling, seeds 0-2 at this configuration:
+
+        contribution  50, 46, 59
+        small_eig     53, 50, 54
+        large_eig     76, 72, 72
+
+    Worst observed ratio against large_eig is 59/72 = 0.819 (contribution)
+    and 54/72 = 0.750 (small_eig), so the 0.9 bound has real headroom without
+    being knife-edge.
+
+    Deliberately NOT asserted: contribution < small_eig. Across 6 seeds at two
+    configurations the contribution/small_eig ratio ranged 0.755 to 1.250 --
+    the default ranking does not reliably beat small_eig on this benchmark,
+    so an assertion to that effect would be seed-dependent. See the comment in
+    src/dsn/subspace/krylov.py:_recycle.
     """
     n = 40
 
@@ -214,25 +233,23 @@ def test_contribution_ranking_beats_large_eig_on_slowly_changing_operator():
         A = spd_matrix(n)
         g = torch.randn(n)
 
-        contribution = KrylovBuilder(
-            k_max=20, m_recycle=8, tau=1e-3, rank_by="contribution"
-        )
+        candidate = KrylovBuilder(k_max=20, m_recycle=8, tau=1e-3, rank_by=rank_by)
         large_eig = KrylovBuilder(
             k_max=20, m_recycle=8, tau=1e-3, rank_by="large_eig"
         )
 
-        contrib_hvp, large_hvp = [], []
+        candidate_hvp, large_hvp = [], []
         for step in range(5):
             drift = 1e-3 * step
             A_t = A + drift * torch.eye(n)
             g_t = g + drift * torch.randn(n)
-            contrib_hvp.append(contribution.build(lambda v: A_t @ v, g_t).n_hvp)
+            candidate_hvp.append(candidate.build(lambda v: A_t @ v, g_t).n_hvp)
             large_hvp.append(large_eig.build(lambda v: A_t @ v, g_t).n_hvp)
 
-        contrib_sum = sum(contrib_hvp[1:])
+        candidate_sum = sum(candidate_hvp[1:])
         large_sum = sum(large_hvp[1:])
-        assert contrib_sum < 0.9 * large_sum, (
-            f"seed {seed}: contribution={contrib_sum} large_eig={large_sum}"
+        assert candidate_sum < 0.9 * large_sum, (
+            f"seed {seed}: {rank_by}={candidate_sum} large_eig={large_sum}"
         )
 
 

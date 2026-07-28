@@ -4,7 +4,12 @@ from dsn.complement import AdamWState, project_out
 
 
 def test_matches_torch_adamw_over_many_steps():
-    """Guards bias correction, epsilon placement and decoupled weight decay."""
+    """Guards bias correction and epsilon placement against torch's own AdamW.
+
+    Not weight decay: `wd = 0.0` below, and `AdamWState.step` takes no decay
+    argument at all -- decoupled decay is applied by `DSN._apply`, not here, so
+    no decay path is exercised by this test.
+    """
     torch.manual_seed(0)
     p_ref = torch.randn(10, requires_grad=True)
     p_ours = p_ref.detach().clone()

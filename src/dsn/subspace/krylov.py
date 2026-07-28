@@ -53,7 +53,7 @@ class KrylovBuilder:
         self.rank_by = rank_by
         self.U: torch.Tensor | None = None
         self.HU: torch.Tensor | None = None
-        self._last_eig = None
+        self._last_eig: tuple[torch.Tensor, torch.Tensor] | None = None
 
     def reset(self) -> None:
         self.U = None
@@ -74,6 +74,12 @@ class KrylovBuilder:
         m = self.U.shape[1] if self.U is not None else 0
 
         if gnorm == 0:
+            # Deliberate: this early return does NOT clear U/HU, unlike the
+            # k_max == 0 path, which falls through to `_recycle` with a
+            # zero-width result and drops them. A zero-gradient step carries no
+            # new curvature information, so the basis built at the previous
+            # iterate is still the best available one for the next step;
+            # throwing it away would force a full rebuild for no gain.
             return _empty_result(g)
 
         best = None
@@ -133,6 +139,18 @@ class KrylovBuilder:
             # actually moves the parameters. Ranking by |lambda| instead would
             # retain the directions the Newton step least depends on, since it
             # weights each direction by 1/lambda.
+            #
+            # The same 1/lambda argument predicts the ordering of the two
+            # eigenvalue heuristics: "small_eig" keeps the directions the step
+            # weights most, so it should be the better of the two, and it is.
+            # Measured (slowly-drifting SPD operator, sum of n_hvp over steps
+            # 1-4, lower is better; 6 seeds x 2 configurations, n=30/k_max=15/
+            # m_recycle=6 and n=40/k_max=20/m_recycle=8): small_eig beat
+            # large_eig in 12 of 12 runs. Note that "contribution" does NOT
+            # beat "small_eig" reliably on this benchmark -- ratios ranged
+            # 0.755 to 1.250 across the same 12 runs -- so only the
+            # small_eig < large_eig ordering is asserted in
+            # tests/test_krylov_builder.py.
             score = (V.T @ res.y).abs()
         elif self.rank_by == "small_eig":
             score = -lam.abs()

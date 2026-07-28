@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 from dsn.utils import flat_grad, flatten, unflatten_like
@@ -19,6 +20,17 @@ def test_flatten_preserves_order():
     torch.testing.assert_close(
         flatten(params), torch.tensor([0.0, 0.0, 1.0, 1.0, 1.0])
     )
+
+
+@pytest.mark.parametrize("n_vec", [3, 8])
+def test_unflatten_like_reports_a_length_mismatch_in_both_directions(n_vec):
+    """A too-*short* vector used to raise `RuntimeError: shape '[5]' is invalid
+    for input of size 3` out of `view_as`, because the length check sat after
+    the loop and never ran. Both directions must give the friendly message.
+    """
+    params = [torch.zeros(5)]
+    with pytest.raises(ValueError, match=f"vector has {n_vec} elements, params need 5"):
+        unflatten_like(torch.randn(n_vec), params)
 
 
 def test_flat_grad_matches_autograd():

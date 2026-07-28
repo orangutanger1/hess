@@ -19,13 +19,17 @@ def unflatten_like(
     vec: torch.Tensor, params: Sequence[torch.Tensor]
 ) -> list[torch.Tensor]:
     """Split a flat vector into tensors shaped like ``params``."""
+    # Checked before the loop, not after: a vector that is too *short* would
+    # otherwise raise an opaque `RuntimeError: shape '[5]' is invalid for input
+    # of size 3` from ``view_as`` before this check is ever reached.
+    total = sum(p.numel() for p in params)
+    if total != vec.numel():
+        raise ValueError(f"vector has {vec.numel()} elements, params need {total}")
     out, i = [], 0
     for p in params:
         n = p.numel()
         out.append(vec[i : i + n].view_as(p))
         i += n
-    if i != vec.numel():
-        raise ValueError(f"vector has {vec.numel()} elements, params need {i}")
     return out
 
 

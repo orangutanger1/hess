@@ -26,7 +26,7 @@ def test_dsn_reaches_lower_loss_than_adamw_on_logistic_regression():
     w_d = torch.zeros(d, requires_grad=True)
 
     adam = torch.optim.AdamW([w_a], lr=1e-1, weight_decay=0.0)
-    dsn = DSN([w_d], lr=1e-1, weight_decay=0.0, damping=1e-4, trust_radius=10.0,
+    dsn = DSN([w_d], lr=1e-1, weight_decay=0.0, trust_radius=10.0,
               builder=KrylovBuilder(k_max=10, m_recycle=5, tau=1e-2, damping=1e-4))
 
     for _ in range(60):
@@ -96,18 +96,21 @@ def test_recycling_stays_fresh_rather_than_going_stale():
     fewer HVPs -- the two numbers move in opposite directions from what
     recycling is supposed to buy.
 
-    The second assertion below (residual must not climb more than 10x from
-    the run's first ten steps to its last ten, measured on the recycled arm
-    alone) is unaffected by the fresh-arm width change and still passes on
-    its own (mean_head=0.0338, mean_tail=0.1634); it is never reached in
-    the xfailed run because the first assertion raises first.
+    The residual-drift half of Risk 1 (residual must not climb more than
+    10x from the run's first ten steps to its last ten, measured on the
+    recycled arm alone) used to be a second assertion in this test, where
+    it was dead code -- the assertion below raises first, in both normal
+    and --runxfail mode, so it was never evaluated in either. It now lives
+    in ``test_recycled_residual_does_not_drift_upward_across_a_run`` as a
+    passing test, which is the only way it provides live regression
+    coverage.
     """
     X, y = ill_conditioned_logistic()
     d = X.shape[1]
 
     def run(m_recycle, k_max):
         w = torch.zeros(d, requires_grad=True)
-        dsn = DSN([w], lr=1e-1, weight_decay=0.0, damping=1e-4, trust_radius=10.0,
+        dsn = DSN([w], lr=1e-1, weight_decay=0.0, trust_radius=10.0,
                   builder=KrylovBuilder(k_max=k_max, m_recycle=m_recycle, tau=1e-2, damping=1e-4))
         residuals = []
         for _ in range(40):
@@ -120,22 +123,60 @@ def test_recycling_stays_fresh_rather_than_going_stale():
 
     mean_recycled = sum(residuals) / len(residuals)
     mean_fresh = sum(residuals_fresh) / len(residuals_fresh)
-    mean_head = sum(residuals[:10]) / 10
-    mean_tail = sum(residuals[-10:]) / 10
 
     assert mean_recycled < 0.5 * mean_fresh, (
         f"F8: recycled residual not better than an equal-width fresh basis: "
         f"mean_recycled={mean_recycled:.4f} (want < {0.5 * mean_fresh:.4f} "
         f"i.e. < half of mean_fresh={mean_fresh:.4f})"
     )
-    assert mean_tail <= 10 * mean_head
+
+
+def test_recycled_residual_does_not_drift_upward_across_a_run():
+    """Risk 1 from the spec, drift half: reuse high while residual climbs.
+
+    The recycled arm alone, over 40 steps: the mean reported residual of
+    the last ten steps must not exceed 10x that of the first ten. This is
+    the multiplicative bound Task 9 fix round 1 introduced (replacing an
+    unfailable additive `+0.5` slack) under the "STRENGTHEN ALL THREE"
+    ruling. It lived as a second assertion inside
+    ``test_recycling_stays_fresh_rather_than_going_stale`` until the final
+    review found it dead: that test's first assertion is xfail(strict=True)
+    and raises before this one is reached, in both normal and --runxfail
+    mode, so this bound was evaluated in neither. Split out here so it
+    actually runs.
+
+    Measured on this configuration: mean_head=0.0338, mean_tail=0.1634,
+    bound 0.33774 -- the tail is 4.8x the head, so the 10x bound has real
+    headroom while still catching a regression that lets the residual run
+    away. Note this gate is NOT a staleness detector: freezing the recycled
+    basis mid-run leaves it passing (see the Task 9 findings doc).
+    """
+    X, y = ill_conditioned_logistic()
+    d = X.shape[1]
+
+    w = torch.zeros(d, requires_grad=True)
+    dsn = DSN([w], lr=1e-1, weight_decay=0.0, trust_radius=10.0,
+              builder=KrylovBuilder(k_max=10, m_recycle=5, tau=1e-2, damping=1e-4))
+    residuals = []
+    for _ in range(40):
+        dsn.step(lambda: logistic_loss(w, X, y))
+        residuals.append(dsn.telemetry.rel_residual)
+
+    mean_head = sum(residuals[:10]) / 10
+    mean_tail = sum(residuals[-10:]) / 10
+
+    assert mean_tail <= 10 * mean_head, (
+        f"recycled residual drifted upward across the run: "
+        f"mean_head={mean_head:.4f} mean_tail={mean_tail:.4f} "
+        f"(want tail <= {10 * mean_head:.5f})"
+    )
 
 
 def test_trust_region_does_not_collapse():
     """Risk 2 from the spec: complement fighting the trust region."""
     X, y = ill_conditioned_logistic()
     w = torch.zeros(X.shape[1], requires_grad=True)
-    dsn = DSN([w], lr=1e-1, weight_decay=0.0, damping=1e-4, trust_radius=1.0,
+    dsn = DSN([w], lr=1e-1, weight_decay=0.0, trust_radius=1.0,
               builder=KrylovBuilder(k_max=10, m_recycle=5, tau=1e-2, damping=1e-4))
 
     for _ in range(40):
@@ -181,7 +222,7 @@ def test_trust_region_collapses_under_minibatch_noise():
     y_full = (X_full @ w_true > 0).to(torch.get_default_dtype())
 
     w = torch.zeros(d, requires_grad=True)
-    dsn = DSN([w], lr=1e-1, weight_decay=0.0, damping=1e-4, trust_radius=1.0,
+    dsn = DSN([w], lr=1e-1, weight_decay=0.0, trust_radius=1.0,
               builder=KrylovBuilder(k_max=10, m_recycle=5, tau=1e-2, damping=1e-4))
 
     for _ in range(200):

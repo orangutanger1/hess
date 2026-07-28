@@ -22,7 +22,8 @@ class Telemetry:
 
     ``n_fallback`` and ``n_shrink`` are cumulative and deliberately visible: a
     run that silently spent most of its steps in the AdamW fallback path must be
-    distinguishable from one that did not.
+    distinguishable from one that did not. ``n_shrink`` counts trust-region
+    shrink events; the step is applied unconditionally and is never undone.
     """
 
     k: int = 0
@@ -57,14 +58,29 @@ class DSN(torch.optim.Optimizer):
             p for group in self.param_groups for p in group["params"]
         ]
         n = sum(p.numel() for p in self._params)
+        if any(
+            p.dtype != self._params[0].dtype or p.device != self._params[0].device
+            for p in self._params
+        ):
+            raise ValueError(
+                "DSN requires all parameters to share one dtype and device: the "
+                "AdamW complement keeps a single flat moment vector built from "
+                "the first parameter's dtype/device."
+            )
 
-        self.lr = lr
         self.weight_decay = weight_decay
-        self.damping = damping
         self.trust_radius = trust_radius
         self.trust_grow = trust_grow
         self.trust_shrink = trust_shrink
+        if builder is not None and damping != 1e-3:
+            raise ValueError(
+                "damping configures the default KrylovBuilder only; "
+                "when builder= is supplied, set damping on the builder."
+            )
         self.builder = builder if builder is not None else KrylovBuilder(damping=damping)
+        # No self.damping: it was never read. `damping` reaches the solver only
+        # through the builder, so storing it here would advertise a knob that
+        # does nothing whenever a builder is supplied.
         self.adam = AdamWState(
             n, betas=betas, eps=eps,
             device=self._params[0].device, dtype=self._params[0].dtype,
@@ -85,6 +101,14 @@ class DSN(torch.optim.Optimizer):
         rho = float("nan")
         if self._pending is not None:
             prev_loss, predicted = self._pending
+            # With the shipped saddle-free solver this gate never falls through:
+            # predicted = sum_i c_i^2 [s/(|lam_i|+d) - 0.5 s^2 lam_i/(|lam_i|+d)^2]
+            # is > 0 unless y == 0 or W is empty. For lam < 0 both terms are
+            # positive; for lam > 0 the bracket factors to
+            # s/(lam+d) * [1 - 0.5 s lam/(lam+d)] >= 0.5 s/(lam+d) > 0 since
+            # s <= 1. So `rho` staying nan is unreachable with KrylovBuilder --
+            # but it IS reachable for a third-party SubspaceBuilder, which the
+            # Protocol in subspace/base.py invites, so the gate stays.
             if predicted > 0:
                 rho = (prev_loss - loss_now) / predicted
                 if rho < 0.25:
@@ -103,6 +127,10 @@ class DSN(torch.optim.Optimizer):
         loss = closure()
         g = flat_grad(loss, self._params, create_graph=False)
         rho = self._update_trust_radius(float(loss.detach()))
+        # Read the live group lr rather than a constructor copy, so an external
+        # lr_scheduler (which writes param_groups[i]["lr"]) actually takes
+        # effect. Single-group only -- see the README's "Known limitations".
+        lr = self.param_groups[0]["lr"]
 
         n_hvp = 0
 
@@ -115,7 +143,7 @@ class DSN(torch.optim.Optimizer):
             res = self.builder.build(matvec, g)
             if not torch.isfinite(res.y).all():
                 raise FloatingPointError("non-finite subspace solution")
-        except (FloatingPointError, torch._C._LinAlgError):
+        except (FloatingPointError, torch.linalg.LinAlgError):
             self.telemetry = Telemetry(
                 n_hvp=n_hvp,
                 rel_residual=float("nan"),
@@ -125,7 +153,9 @@ class DSN(torch.optim.Optimizer):
                 rho=rho,
             )
             self.builder.reset()
-            d = self.adam.step(g, self.lr)
+            d = self.adam.step(g, lr)
+            self._last_W = None
+            self._last_d_complement = None
             self._apply(d)
             self._pending = None
             return loss
@@ -134,10 +164,10 @@ class DSN(torch.optim.Optimizer):
         norm = d_sub.norm()
         s = 1.0
         if norm > self.trust_radius:
-            s = self.trust_radius / norm
+            s = float(self.trust_radius / norm)
             d_sub = d_sub * s
 
-        d_comp = project_out(self.adam.step(g, self.lr), res.W)
+        d_comp = project_out(self.adam.step(g, lr), res.W)
 
         # Predicted reduction of the quadratic model, scaled by the trust-region
         # clip factor `s` so a clipped step is judged against the reduction it
@@ -177,6 +207,7 @@ class DSN(torch.optim.Optimizer):
         into ``g``, and is never projected, matching AdamW semantics.
         """
         if self.weight_decay:
+            lr = self.param_groups[0]["lr"]
             for p in self._params:
-                p.mul_(1.0 - self.lr * self.weight_decay)
+                p.mul_(1.0 - lr * self.weight_decay)
         self._add_to_params(d)
