@@ -166,6 +166,46 @@ this is one `float64` overflow away from becoming a real problem (`float32`
 overflows around 3.4e38 -- the fixed-batch MNIST run's 1.4e45 would
 already have overflowed in `float32`).
 
+## F8 — Recycling degrades the TRUE residual while telemetry reports the reverse
+
+Recycling as implemented degrades the TRUE Newton residual relative to no
+recycling on this problem family, while telemetry reports the reverse.
+`HU` is carried over from the PREVIOUS iterate's Hessian (`krylov.py:113-117,
+144-145`), so `T` is not `WᵀHW` at the current point, and `newton_residual`
+measures against that stale `T`. Measured: at equal basis width the
+recycled arm's true residual is 1.078 vs a fresh baseline's 0.357 (seed 0,
+cond 100), and 5269.7 vs 0.144 at cond 1000 — while the reported residuals
+say 0.1010 vs 0.3572 and 0.0722 vs 0.1444 respectively. The optimism
+reaches 27x-36000x, which exceeds `base.py`'s documented "order of
+magnitude or more" by a wide margin — that docstring understates the
+effect. This is the quantitative form of the Risk-1 staleness Task 9 set
+out to detect. Deferred to the follow-up plan by ruling, pinned by the
+xfail gate.
+
+Recycling is not broken in the sense of producing garbage steps — DSN
+still converges on the fixed-batch problems this suite exercises
+(`test_dsn_reaches_lower_loss_than_adamw_on_logistic_regression`,
+`test_trains_a_small_mlp_on_synthetic_data`, both passing). The claim is
+narrower: recycling does not improve the true residual over a fresh basis
+of the same width on this problem family, and the reported
+(`rel_residual`) telemetry hides this because it is computed against the
+same stale `T` that produced the bad recycled directions in the first
+place, rather than against the true operator.
+
+`tests/test_convergence.py::test_recycling_stays_fresh_rather_than_going_stale`
+was re-pointed at an equal-basis-width comparison (`m_recycle=5,k_max=10`
+vs `m_recycle=0,k_max=15`, both width 15 once warmed up) to isolate
+recycling quality from basis-width effects, which the original comparison
+(`m_recycle=0,k_max=10`, width 10) confounded. At equal width the
+*reported* residual already reverses: recycled 0.1010 vs fresh 0.0644,
+fresh being better despite recycled using less than the fresh arm's HVP
+budget (400 vs 591 total over 40 steps). The test does not compute a true
+dense residual itself (ruled out during Task 6: no extra curvature
+products in the test); the true-residual numbers above are an independent
+measurement, not reproduced by the committed test, which is why the test
+is `xfail(strict=True)` rather than asserting the true-residual gap
+directly.
+
 ## Where this is tested on this branch
 
 - `tests/test_convergence.py::test_trust_region_does_not_collapse` --
@@ -180,6 +220,13 @@ already have overflowed in `float32`).
   suite to failing the day someone "fixes" this without actually fixing
   it, and flips to passing the day the acceptance-ratio computation is
   corrected.
+- `tests/test_convergence.py::test_recycling_stays_fresh_rather_than_going_stale`
+  -- `xfail(strict=True)` as of the Task 9 fix round 2 (previously passed
+  for the wrong reason, see the fix round 2 report). Reproduces F8's
+  reported-residual reversal at equal basis width: `mean_recycled=0.1010`
+  vs `mean_fresh=0.0644`, want `mean_recycled < 0.0322`. Flips to passing
+  the day the recycled block of `T` is recomputed against the current
+  step's Hessian instead of carried over from the previous step's.
 
 ## Recommendation for Plan 2
 
@@ -191,3 +238,8 @@ already have overflowed in `float32`).
    independent of F2, cheap, and removes a latent numerical risk.
 4. `k_max` vs total basis width (F6) is a documentation fix only (correct
    the `scripts/sanity_mnist.py` docstring expectation), not a code change.
+5. Recompute the recycled block of `T` against the current step's Hessian
+   rather than carrying `HU` over from the previous step (F8). Until this
+   lands, recycling should not be assumed to help accuracy on any given
+   step -- its only demonstrated benefit is spending fewer HVPs (F8: 400
+   vs 591 over 40 steps at equal width), not a better subspace.

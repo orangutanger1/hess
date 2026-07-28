@@ -39,61 +39,95 @@ def test_dsn_reaches_lower_loss_than_adamw_on_logistic_regression():
         assert logistic_loss(w_d, X, y) < logistic_loss(w_a, X, y)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Known defect, deferred to Plan 2 (see "
+        "docs/superpowers/plans/2026-07-27-dsn-core-task9-findings.md F8): "
+        "HU is carried over from the PREVIOUS iterate's Hessian "
+        "(src/dsn/subspace/krylov.py:113-117,144-145), so the recycled block "
+        "of T is not W'HW at the current point, and rel_residual (computed "
+        "against that stale T, see src/dsn/subspace/base.py) is optimistic "
+        "for the recycled arm but exact for the fresh arm. At equal basis "
+        "width (both arms width 15: m_recycle=5,k_max=10 vs m_recycle=0,"
+        "k_max=15) the recycled arm's reported residual (0.1010) is WORSE "
+        "than the fresh arm's (0.0644), not the 2x-better this assertion "
+        "demands. Expected to fail today and should flip to passing the day "
+        "the recycled block of T is recomputed against the current step's "
+        "Hessian instead of carried over from the previous step's."
+    ),
+)
 def test_recycling_stays_fresh_rather_than_going_stale():
     """Risk 1 from the spec: reuse high while residual climbs means staleness.
 
-    Two gates, both empirically demonstrated to be capable of failing under a
-    genuinely degraded scenario -- see the Task 9 fix-round report and
-    docs/superpowers/plans/2026-07-27-dsn-core-task9-findings.md for the
-    corruption experiments that trip each one. The plan's original text used
-    ``reuse_frac > 0.2``, which is `m_recycle / (m_recycle + j)` with
-    ``j <= k_max``; at m_recycle=5, k_max=10 the arithmetic floor is
-    5/15 = 0.333, already above 0.2 regardless of whether recycling helps at
-    all -- that assertion could not fail and is not used here.
+    Compares recycling (m_recycle=5, k_max=10 -> basis width 15 once warmed
+    up) against a from-scratch rebuild at the SAME basis width
+    (m_recycle=0, k_max=15), so the comparison isolates recycling quality
+    from basis width. An earlier version of this test compared m_recycle=5
+    against m_recycle=0,k_max=10 (width 15 vs width 10), which confounded
+    "recycling helps" with "a wider basis helps" -- see the Task 9 fix
+    round 2 report.
 
-    1. Recycling must pay for itself: at equal curvature-vector-product
-       budget (both configurations exhaust k_max=10 new Lanczos vectors every
-       step on this problem, so the budget really is equal), the mean
-       rel_residual with recycling must beat a matched from-scratch
-       (m_recycle=0) rebuild by a real margin, not merely be numerically
-       present. Measured: 0.1010 (recycled) vs 0.3572 (fresh), a 3.54x edge;
-       the 0.5x threshold leaves 1.77x of headroom below where recycling
-       actually lands today. Continuously replacing the recycled state with
-       random, wrongly-scaled vectors (simulating permanently-stale
-       recycling) drives the mean to 1.063 -- 6x over the fresh baseline --
-       and trips this assertion, proving it is not vacuous.
-    2. The residual must not climb by more than an order of magnitude from
-       the run's first ten steps to its last ten. Measured drift is 4.84x
-       (mean head 0.033774, mean tail 0.163374); the 10x ceiling leaves
-       2.07x of headroom above that and is not an arbitrary round number --
-       it is the same "order of magnitude" bound `SubspaceResult.rel_residual`
-       documents (src/dsn/subspace/base.py) for how optimistic the recycled-
-       surrogate residual can be relative to the true dense one once
-       reuse_frac > 0, which Task 9's watch items showed is every step here
-       after the first.
+    This asserts the recycled arm should beat the equal-width fresh
+    baseline by 2x on the reported (T-relative, not true-Hessian-relative)
+    residual. It does not: mean_recycled=0.1010 vs mean_fresh=0.0644 --
+    fresh is *better* than recycled at equal width, not worse. The
+    assertion fails, by design, and this test is xfail(strict=True): it
+    pins a real defect (F8 in
+    docs/superpowers/plans/2026-07-27-dsn-core-task9-findings.md) rather
+    than asserting a false claim as green.
+
+    Root cause (F8): `HU` is carried over from the *previous* iterate's
+    Hessian (src/dsn/subspace/krylov.py:113-117,144-145), so the recycled
+    block of `T` is not `W'HW` at the current point, and `rel_residual`
+    measures against that stale `T`. The fresh arm has reuse_frac == 0,
+    where `rel_residual` is exact by construction
+    (src/dsn/subspace/base.py); the recycled arm's is not. Computing a true
+    dense residual inside this test to quantify that gap directly was
+    explicitly ruled out (no extra curvature products in the test); F8
+    reports an independently-measured true-residual comparison instead.
+
+    n_hvp is NOT equal between the two arms at these widths, so this is an
+    equal-WIDTH comparison, not an equal-budget one: recycled uses 10 new
+    Lanczos products on every one of the 40 steps (400 total; tau=1e-2 is
+    never satisfied early once recycling is warmed up), while fresh at
+    k_max=15 mostly uses 15, occasionally fewer near convergence, totaling
+    591. Recycling does *worse* on the reported metric while also spending
+    fewer HVPs -- the two numbers move in opposite directions from what
+    recycling is supposed to buy.
+
+    The second assertion below (residual must not climb more than 10x from
+    the run's first ten steps to its last ten, measured on the recycled arm
+    alone) is unaffected by the fresh-arm width change and still passes on
+    its own (mean_head=0.0338, mean_tail=0.1634); it is never reached in
+    the xfailed run because the first assertion raises first.
     """
     X, y = ill_conditioned_logistic()
     d = X.shape[1]
 
-    def run(m_recycle):
+    def run(m_recycle, k_max):
         w = torch.zeros(d, requires_grad=True)
         dsn = DSN([w], lr=1e-1, weight_decay=0.0, damping=1e-4, trust_radius=10.0,
-                  builder=KrylovBuilder(k_max=10, m_recycle=m_recycle, tau=1e-2, damping=1e-4))
+                  builder=KrylovBuilder(k_max=k_max, m_recycle=m_recycle, tau=1e-2, damping=1e-4))
         residuals = []
         for _ in range(40):
             dsn.step(lambda: logistic_loss(w, X, y))
             residuals.append(dsn.telemetry.rel_residual)
         return residuals
 
-    residuals = run(m_recycle=5)
-    residuals_fresh = run(m_recycle=0)
+    residuals = run(m_recycle=5, k_max=10)
+    residuals_fresh = run(m_recycle=0, k_max=15)
 
     mean_recycled = sum(residuals) / len(residuals)
     mean_fresh = sum(residuals_fresh) / len(residuals_fresh)
     mean_head = sum(residuals[:10]) / 10
     mean_tail = sum(residuals[-10:]) / 10
 
-    assert mean_recycled < 0.5 * mean_fresh
+    assert mean_recycled < 0.5 * mean_fresh, (
+        f"F8: recycled residual not better than an equal-width fresh basis: "
+        f"mean_recycled={mean_recycled:.4f} (want < {0.5 * mean_fresh:.4f} "
+        f"i.e. < half of mean_fresh={mean_fresh:.4f})"
+    )
     assert mean_tail <= 10 * mean_head
 
 

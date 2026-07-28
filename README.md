@@ -48,3 +48,20 @@ are documented in
 This is tracked by `tests/test_convergence.py::test_trust_region_collapses_under_minibatch_noise`,
 marked `xfail(strict=True)`, and is deferred to Plan 2 -- **do not use DSN
 with mini-batch closures until this is fixed.**
+
+Recycling (`m_recycle > 0`) carries `HU` over from the previous iterate's
+Hessian, so the recycled block of the projected curvature `T` is stale at
+the current point. On the same ill-conditioned logistic problem, an
+independent true-residual measurement shows the recycled subspace's true
+Newton residual is *worse* than a fresh, from-scratch subspace of the same
+width (1.078 vs 0.357 at one seed, 5269.7 vs 0.144 at another) even though
+the reported `rel_residual` telemetry says the opposite, because it is
+computed against the same stale `T`. Recycling is not broken in the sense
+of producing garbage steps -- DSN still converges on the fixed-batch
+problems in this suite -- but it should not currently be assumed to
+improve subspace accuracy; its only demonstrated benefit is spending fewer
+curvature-vector products, not a better subspace. Details in
+[`docs/superpowers/plans/2026-07-27-dsn-core-task9-findings.md`](docs/superpowers/plans/2026-07-27-dsn-core-task9-findings.md)
+(F8), tracked by
+`tests/test_convergence.py::test_recycling_stays_fresh_rather_than_going_stale`,
+also `xfail(strict=True)`.
