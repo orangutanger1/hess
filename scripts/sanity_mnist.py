@@ -1,9 +1,23 @@
 """CPU smoke run of DSN on MNIST. Not a test: this downloads data.
 
 Usage:  python scripts/sanity_mnist.py [--steps 200] [--optimizer dsn|adamw]
+
+**Expect the DSN run to DIVERGE. That is the documented behavior, not a bug in
+this script.** This is a mini-batch closure, and DSN's lagged trust-region
+acceptance ratio is only valid under a fixed, full-batch closure -- see "Known
+limitations" in README.md and F1/F2 in
+docs/superpowers/plans/2026-07-27-dsn-core-task9-findings.md. At these exact
+defaults (200 steps, lr 1e-2, k_max 8, m_recycle 4, batch 256) the findings doc
+records final losses of 9.2297 / 5.8713 / 4.6986 across three seeds, against
+~0.15 for `--optimizer adamw` on the same data. Run with `--optimizer adamw`
+for the converging reference.
+
+Note also that telemetry `k` reports the *total* basis width, i.e. up to
+`k_max + m_recycle` = 12 here, not `k_max` alone (findings doc F6).
 """
 
 import argparse
+import sys
 import time
 
 import torch
@@ -38,6 +52,13 @@ def main():
 
     model = build_model()
     if args.optimizer == "dsn":
+        print(
+            "WARNING: DSN is expected to DIVERGE on this mini-batch run. Its "
+            "lagged trust-region ratio is only valid for a fixed full-batch "
+            "closure; see 'Known limitations' in README.md (F1/F2). Use "
+            "--optimizer adamw for the converging reference.",
+            file=sys.stderr,
+        )
         opt = DSN(model.parameters(), lr=args.lr, weight_decay=0.0,
                   builder=KrylovBuilder(k_max=8, m_recycle=4, tau=0.1))
     else:
@@ -68,7 +89,7 @@ def main():
             extra = ""
 
         if step % 20 == 0:
-            print(f"step {step:4d} loss {float(loss):.4f}{extra}")
+            print(f"step {step:4d} loss {float(loss.detach()):.4f}{extra}")
 
     print(f"done in {time.time() - t0:.1f}s")
 

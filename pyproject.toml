@@ -6,7 +6,7 @@ requires-python = ">=3.10"
 dependencies = ["torch>=2.5", "numpy>=1.24"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4"]
+dev = ["pytest>=7.4", "torchvision>=0.20"]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -18,3 +18,20 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# Provenance of the one suppression below (traced, not guessed):
+#   src/dsn/curvature.py `torch.func.jvp`
+#     -> torch/_functorch/eager_transforms.py `fwAD.make_dual`
+#     -> torch/autograd/forward_ad.py `_maybe_load_decompositions`
+#     -> `import torch._decomp.decompositions_for_jvp`, whose module BODY calls
+#        `_register_jit_decomposition_for_jvp` -> `torch.jit.script(fn).graph`
+#     -> torch/jit/_script.py warns.
+# All 18 warnings come from that single module import, once per process -- one
+# `ggnvp` call emits all 18. Nothing DSN calls is itself deprecated and there is
+# no alternative formulation of `ggnvp` that avoids it, so this is not a
+# forward-compatibility risk for this package. `hvp` (reverse-over-reverse) does
+# not trigger it, which is why only tests/test_curvature_ggn.py is affected.
+# Scoped to this one message only: the CUDA-driver-probe UserWarning is
+# deliberately NOT suppressed, since it would mask real device errors.
+filterwarnings = [
+    "ignore:`torch\\.jit\\.script` is deprecated:DeprecationWarning",
+]
