@@ -168,43 +168,59 @@ already have overflowed in `float32`).
 
 ## F8 — Recycling degrades the TRUE residual while telemetry reports the reverse
 
-Recycling as implemented degrades the TRUE Newton residual relative to no
-recycling on this problem family, while telemetry reports the reverse.
-`HU` is carried over from the PREVIOUS iterate's Hessian (`krylov.py:113-117,
-144-145`), so `T` is not `WᵀHW` at the current point, and `newton_residual`
-measures against that stale `T`. Measured: at equal basis width the
-recycled arm's true residual is 1.078 vs a fresh baseline's 0.357 (seed 0,
-cond 100), and 5269.7 vs 0.144 at cond 1000 — while the reported residuals
-say 0.1010 vs 0.3572 and 0.0722 vs 0.1444 respectively. The optimism
-reaches 27x-36000x, which exceeds `base.py`'s documented "order of
-magnitude or more" by a wide margin — that docstring understates the
-effect. This is the quantitative form of the Risk-1 staleness Task 9 set
+Mechanism: `HU` is carried over from the PREVIOUS iterate's Hessian
+(`krylov.py:113-117, 144-145`), so `T` is not `WᵀHW` at the current point,
+and `newton_residual` measures against that stale `T` rather than the true
+operator. This is the quantitative form of the Risk-1 staleness Task 9 set
 out to detect. Deferred to the follow-up plan by ruling, pinned by the
-xfail gate.
+xfail gate. This finding has two distinct parts, which must not be
+blurred together — one needs a true dense residual to see, the other does
+not.
+
+**Claim 1 — telemetry reports the reverse of ground truth (unequal
+widths, the fix-round-1 comparison).** At `m_recycle=5, k_max=10`
+(recycled, width 15) vs `m_recycle=0, k_max=10` (fresh, width 10) — the
+comparison as it existed after fix round 1, before it was re-pointed —
+telemetry reports the recycled arm 3.5x *better* (reported 0.1010 vs
+0.3572), while an independently measured true dense residual says the
+recycled arm is 3x *worse* (true 1.078 vs 0.357). At cond=1000 the same
+inversion is far larger: reported says recycled is 2x better (0.0722 vs
+0.1444), true says it is 36000x worse (5269.7 vs 0.144). The fresh arm's
+reported (0.3572) and true (0.357) values agree, which is what validates
+the measurement — the fresh arm is exact by construction whenever
+`reuse_frac == 0` (`base.py:20-23`), so the entire reported-vs-true gap
+belongs to the recycled arm, not to measurement noise. The optimism
+reaches 27x-36000x, which exceeds `base.py`'s own documented "order of
+magnitude or more" by a wide margin — that docstring understates the
+effect.
+
+**Claim 2 — what the xfail gate actually pins (equal widths, the current
+comparison).** `tests/test_convergence.py::test_recycling_stays_fresh_rather_than_going_stale`
+was re-pointed at an equal-basis-width comparison (`m_recycle=5,k_max=10`
+vs `m_recycle=0,k_max=15`, both width 15 once warmed up) to isolate
+recycling quality from the basis-width confound in Claim 1's comparison.
+At equal width, recycling is worse even by its own optimistic *reported*
+metric, with no true-residual computation needed: recycled 0.1010 vs
+fresh 0.0644. This is a weaker but more robust statement than Claim 1 — it
+needs no dense-Hessian probe, which is why the gate can assert it
+directly (computing a true dense residual inside the test was ruled out:
+no extra curvature products in the test). Recycling also used fewer HVPs
+doing it (400 vs the fresh arm's 591 over 40 steps), so the reversal is
+not explained by recycling being given a smaller budget. The gate fails
+today for this reason and flips green the day the recycled block of `T`
+is recomputed against the current step's Hessian instead of carried over
+from the previous step's.
 
 Recycling is not broken in the sense of producing garbage steps — DSN
 still converges on the fixed-batch problems this suite exercises
 (`test_dsn_reaches_lower_loss_than_adamw_on_logistic_regression`,
 `test_trains_a_small_mlp_on_synthetic_data`, both passing). The claim is
-narrower: recycling does not improve the true residual over a fresh basis
-of the same width on this problem family, and the reported
-(`rel_residual`) telemetry hides this because it is computed against the
-same stale `T` that produced the bad recycled directions in the first
-place, rather than against the true operator.
-
-`tests/test_convergence.py::test_recycling_stays_fresh_rather_than_going_stale`
-was re-pointed at an equal-basis-width comparison (`m_recycle=5,k_max=10`
-vs `m_recycle=0,k_max=15`, both width 15 once warmed up) to isolate
-recycling quality from basis-width effects, which the original comparison
-(`m_recycle=0,k_max=10`, width 10) confounded. At equal width the
-*reported* residual already reverses: recycled 0.1010 vs fresh 0.0644,
-fresh being better despite recycled using less than the fresh arm's HVP
-budget (400 vs 591 total over 40 steps). The test does not compute a true
-dense residual itself (ruled out during Task 6: no extra curvature
-products in the test); the true-residual numbers above are an independent
-measurement, not reproduced by the committed test, which is why the test
-is `xfail(strict=True)` rather than asserting the true-residual gap
-directly.
+narrower: recycling does not improve the residual over a fresh basis of
+the same width on this problem family — true by Claim 1's ground truth,
+and even by the optimistic reported metric per Claim 2 — and the reported
+(`rel_residual`) telemetry hides the true-residual gap because it is
+computed against the same stale `T` that produced the bad recycled
+directions in the first place, rather than against the true operator.
 
 ## Where this is tested on this branch
 
@@ -223,10 +239,11 @@ directly.
 - `tests/test_convergence.py::test_recycling_stays_fresh_rather_than_going_stale`
   -- `xfail(strict=True)` as of the Task 9 fix round 2 (previously passed
   for the wrong reason, see the fix round 2 report). Reproduces F8's
-  reported-residual reversal at equal basis width: `mean_recycled=0.1010`
-  vs `mean_fresh=0.0644`, want `mean_recycled < 0.0322`. Flips to passing
-  the day the recycled block of `T` is recomputed against the current
-  step's Hessian instead of carried over from the previous step's.
+  Claim 2 (reported-residual reversal at equal basis width, no true
+  residual involved): `mean_recycled=0.1010` vs `mean_fresh=0.0644`, want
+  `mean_recycled < 0.0322`. Flips to passing the day the recycled block of
+  `T` is recomputed against the current step's Hessian instead of carried
+  over from the previous step's.
 
 ## Recommendation for Plan 2
 

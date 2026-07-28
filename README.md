@@ -51,12 +51,17 @@ with mini-batch closures until this is fixed.**
 
 Recycling (`m_recycle > 0`) carries `HU` over from the previous iterate's
 Hessian, so the recycled block of the projected curvature `T` is stale at
-the current point. On the same ill-conditioned logistic problem, an
-independent true-residual measurement shows the recycled subspace's true
-Newton residual is *worse* than a fresh, from-scratch subspace of the same
-width (1.078 vs 0.357 at one seed, 5269.7 vs 0.144 at another) even though
-the reported `rel_residual` telemetry says the opposite, because it is
-computed against the same stale `T`. Recycling is not broken in the sense
+the current point, and the reported `rel_residual` telemetry (computed
+against that stale `T`) hides it. Two independent measurements on the same
+ill-conditioned logistic problem: at unequal basis width (recycled width
+15 vs a fresh, from-scratch width-10 subspace), telemetry reports the
+recycled arm 3.5x *better* while an independently measured true dense
+residual says it is 3x *worse* (true 1.078 vs 0.357; the fresh arm's
+reported and true values agree at 0.357, since a from-scratch subspace's
+`rel_residual` is exact by construction, which is what validates the
+measurement). At *equal* basis width (both width 15), recycling is worse
+even by its own optimistic reported metric alone, no true residual needed:
+0.1010 (recycled) vs 0.0644 (fresh). Recycling is not broken in the sense
 of producing garbage steps -- DSN still converges on the fixed-batch
 problems in this suite -- but it should not currently be assumed to
 improve subspace accuracy; its only demonstrated benefit is spending fewer
