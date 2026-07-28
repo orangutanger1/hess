@@ -17,7 +17,15 @@ class SubspaceResult:
     W            (n, r) orthonormal basis; r may be 0
     T            (r, r) symmetric projected curvature W'HW
     y            (r,)   coefficients, so the in-subspace step is W @ y
-    rel_residual ‖H d + g‖ / ‖g‖, the subspace-quality measure
+    rel_residual ‖H d + g‖ / ‖g‖, computed against `T`, the recycled
+                 surrogate curvature, not the true operator H. Exact when
+                 reuse_frac == 0, since T is then the fresh Lanczos
+                 tridiagonal. Optimistic when reuse_frac > 0: the retained
+                 Ritz pairs have not converged, so the recycled blocks of T
+                 (built from HU = W @ (T @ Vk), free of extra curvature
+                 products) only approximate W'HW, and the true dense
+                 residual can exceed the reported one by an order of
+                 magnitude or more.
     n_hvp        curvature-vector products consumed this step
     reuse_frac   fraction of the basis carried over from the previous step
     """
