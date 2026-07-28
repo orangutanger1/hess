@@ -66,6 +66,14 @@ cause:
   *severity* is hyperparameter-dependent, not evidence that a bigger
   subspace fixes the underlying mechanism. The lagged-rho defect (F2) is
   the dominant, structural cause; subspace size modulates how bad it gets.
+  The decisive evidence against under-resolution is not the `k_max` sweep
+  but the *converging* run: the fixed-batch run that reaches loss 0.0000
+  also sits at `rel_residual` 0.744-0.769 and never reaches `tau` either.
+  An under-resolved subspace is therefore compatible with convergence on
+  this problem, so under-resolution cannot be what distinguishes the
+  diverging mini-batch run from the converging fixed-batch one. The only
+  variable that does distinguish them is the per-step change of objective,
+  i.e. F2.
 
 ## F4 — `g ∈ span(W)` always: the complement carries zero first-order descent
 
@@ -161,10 +169,11 @@ in lockstep as the iterate nears a optimum (the clip never engages once
 the radius is enormous relative to the actual Newton step), but it is a
 latent issue worth flagging for Plan 2: the radius carries no usable upper
 bound or memory of a sane scale, so after any transient spike it cannot
-promptly re-engage a reasonable clip, and in a longer or less benign run
-this is one `float64` overflow away from becoming a real problem (`float32`
-overflows around 3.4e38 -- the fixed-batch MNIST run's 1.4e45 would
-already have overflowed in `float32`).
+promptly re-engage a reasonable clip. In `float64` the observed magnitudes
+are nowhere near dangerous -- 1.4e45 is some 263 orders of magnitude below
+the `float64` limit. The concrete risk is precision, not `float64`
+overflow: `float32` overflows around 3.4e38, so the fixed-batch MNIST run's
+1.4e45 would already have overflowed there.
 
 ## F8 — Recycling degrades the TRUE residual while telemetry reports the reverse
 
@@ -222,6 +231,39 @@ and even by the optimistic reported metric per Claim 2 — and the reported
 computed against the same stale `T` that produced the bad recycled
 directions in the first place, rather than against the true operator.
 
+## F9 — A zero gradient still produces a step, walking off an exact minimum
+
+When `‖g‖` is exactly zero the builder short-circuits and returns an empty
+subspace (`src/dsn/subspace/krylov.py:76-77`, `k=0`, no curvature
+products), so `d_sub` is zero — but the AdamW complement is *not*
+short-circuited. `AdamWState.step` is still called, its first moment `m`
+still carries the previous steps' gradients, and `project_out` against a
+zero-width `W` is the identity, so the full momentum-driven AdamW
+displacement is applied on top of a zero Newton step.
+
+Measured on `test_lagged_rho_accounts_for_trust_region_clipping`'s exact
+quadratic (`n=10, cond=50, lr=1e-3`): iteration 11 is the first step whose
+Newton step fits inside the grown trust radius and it lands on `x*`
+exactly, so iteration 12 sees `‖g‖ = 1.3e-15`, reports `k=0`, and applies
+`‖d_comp‖ = 2.455e-3`. Iteration 13 then measures `‖g‖ = 2.6e-2` — the
+optimizer has moved back off the optimum it had reached, and the loss it
+had minimized is no longer minimal.
+
+This is the same class of defect as F1-F8 (method-level, not an
+implementation slip): a first-order complement with momentum has no notion
+of "the subspace method has already converged", and DSN has no stationarity
+check anywhere that would stop it. It is benign on the problems this suite
+exercises because the excursion is small and immediately re-corrected on
+the next step (iteration 13's subspace step is 2.455e-3, exactly undoing
+it), but it means an exact optimum is not a fixed point of the iteration.
+How the sequence behaves over many steps at stationarity was not measured
+and is not claimed here. Plan 2 should either damp the complement by the same trust-region
+logic that scales `d_sub`, or gate the complement on `‖g‖` being above a
+stationarity threshold. Note that this defect is *not* what F4 describes:
+F4 is about the complement carrying zero first-order descent while the
+gradient is nonzero; F9 is about it carrying a nonzero step while the
+gradient is zero.
+
 ## Where this is tested on this branch
 
 - `tests/test_convergence.py::test_trust_region_does_not_collapse` --
@@ -244,6 +286,41 @@ directions in the first place, rather than against the true operator.
   `mean_recycled < 0.0322`. Flips to passing the day the recycled block of
   `T` is recomputed against the current step's Hessian instead of carried
   over from the previous step's.
+- `tests/test_convergence.py::test_recycled_residual_does_not_drift_upward_across_a_run`
+  -- passes. Split out of the test above by the final whole-branch review,
+  which found it dead code there: the xfailed assertion raised before it in
+  both normal and `--runxfail` mode, so it was evaluated in neither. It is
+  the drift half of Risk 1 (`mean_tail <= 10 * mean_head`, measured
+  `mean_head=0.0338`, `mean_tail=0.1634`, bound 0.33774).
+
+**These gates are not staleness detectors, and Plan 2 must not treat them
+as such.** Freezing `builder.U`/`HU` after step 5 and leaving them frozen
+for the remaining 35 steps -- i.e. maximally stale recycling, the exact
+failure Risk 1 was written to catch -- does not trip either gate. Measured
+on the same 40-step ill-conditioned logistic run the gates use:
+
+| run | mean reported `rel_residual` | drift (tail/head) | reported at final step | TRUE residual at final step |
+|---|---|---|---|---|
+| recycled, healthy (`m_recycle=5,k_max=10`) | 0.1010 | 4.84 | 0.6295 | 0.6897 |
+| fresh, equal width (`m_recycle=0,k_max=15`) | 0.0644 | 0.45 | 0.0178 | 0.0178 |
+| recycled, frozen after step 5 | **0.0263** | **0.47** | 0.0114 | **0.9752** |
+
+The frozen-stale run passes the drift gate comfortably (0.47 <= 10) and it
+passes the F8 gate too (0.0263 < 0.5 x 0.0644 = 0.0322) -- the gate the
+*correct* implementation fails. So the maximally-stale variant scores
+better on both gates than the shipped one. Its reported residual (0.0114)
+understates its true residual (0.9752) by 85x, while the fresh arm's
+reported and true values agree exactly (0.0178 vs 0.0178), which is what
+validates the measurement.
+
+This is F8's mechanism taken to its limit: `rel_residual` is computed
+against the same `T` that staleness corrupts, so the metric *improves* as
+the subspace degrades. Any gate built on reported `rel_residual` is
+therefore blind to staleness by construction, no matter how it is
+strengthened. Detecting staleness requires a measurement against the true
+operator, which these gates deliberately do not make (the ruling was: no
+extra curvature products in tests). Plan 2 should assume Risk 1 is
+currently **uncovered**, not covered by these two gates.
 
 ## Recommendation for Plan 2
 
@@ -260,3 +337,7 @@ directions in the first place, rather than against the true operator.
    lands, recycling should not be assumed to help accuracy on any given
    step -- its only demonstrated benefit is spending fewer HVPs (F8: 400
    vs 591 over 40 steps at equal width), not a better subspace.
+6. Stop the complement from stepping at stationarity (F9) -- either scale
+   `d_comp` by the same trust-region factor `s` that scales `d_sub`, or gate
+   it on `‖g‖` exceeding a stationarity threshold. Cheap and independent of
+   F2.
