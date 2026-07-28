@@ -82,6 +82,43 @@ def test_trust_radius_clips_a_large_subspace_step():
     assert dsn.telemetry.step_norm_subspace <= 1e-3 + 1e-12
 
 
+def test_lagged_rho_accounts_for_trust_region_clipping():
+    """The lagged rho must be computed against the *clipped* step's predicted
+    reduction, or the trust region enters a self-reinforcing shrink spiral: a
+    small clip factor `s` produces a small rho (rho ~ 2s - s**2 for an
+    unscaled prediction), which shrinks the trust radius further, producing an
+    even smaller `s` next step, with no path back out since growth requires
+    rho > 0.75.
+
+    On an exact quadratic, a correctly-scaled prediction matches the clipped
+    step's true reduction exactly, so rho must be ~1 every step and the trust
+    radius must not collapse toward zero. Uses the same configuration as
+    ``test_trust_radius_clips_a_large_subspace_step`` (a trust radius far
+    below the Newton step norm, so clipping is active from the first step),
+    run for multiple steps instead of one so the trust-region *trajectory* is
+    observable.
+    """
+    n = 10
+    A, b, x = quadratic_problem(n)
+    dsn = DSN([x], lr=1e-3, damping=0.0, trust_radius=1e-3,
+              builder=KrylovBuilder(k_max=n, m_recycle=0, tau=0.0, damping=0.0))
+
+    rhos = []
+    for _ in range(12):
+        dsn.step(lambda: 0.5 * x @ A @ x + b @ x)
+        rhos.append(dsn.telemetry.rho)
+
+    # The first step has no lagged prediction yet (rho is nan); every step
+    # after that is a clipped Newton step on an exact quadratic, so rho must
+    # be ~1, not collapsing toward 0 as an unscaled prediction would produce.
+    for rho in rhos[1:]:
+        assert abs(rho - 1.0) < 1e-6, f"rho={rho} indicates a mis-scaled prediction"
+
+    # A correctly-scaled prediction must not send the trust radius into a
+    # self-reinforcing shrink spiral toward zero.
+    assert dsn.trust_radius >= 1e-3
+
+
 def test_telemetry_is_populated():
     n = 15
     A, b, x = quadratic_problem(n)

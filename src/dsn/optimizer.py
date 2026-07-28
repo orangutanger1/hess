@@ -20,7 +20,7 @@ from .utils import flat_grad, flatten, unflatten_like
 class Telemetry:
     """Per-step diagnostics.
 
-    ``n_fallback`` and ``n_rejected`` are cumulative and deliberately visible: a
+    ``n_fallback`` and ``n_shrink`` are cumulative and deliberately visible: a
     run that silently spent most of its steps in the AdamW fallback path must be
     distinguishable from one that did not.
     """
@@ -34,7 +34,7 @@ class Telemetry:
     step_norm_subspace: float = 0.0
     step_norm_complement: float = 0.0
     n_fallback: int = 0
-    n_rejected: int = 0
+    n_shrink: int = 0
 
 
 class DSN(torch.optim.Optimizer):
@@ -89,7 +89,7 @@ class DSN(torch.optim.Optimizer):
                 rho = (prev_loss - loss_now) / predicted
                 if rho < 0.25:
                     self.trust_radius *= self.trust_shrink
-                    self.telemetry.n_rejected += 1
+                    self.telemetry.n_shrink += 1
                 elif rho > 0.75:
                     self.trust_radius *= self.trust_grow
         return rho
@@ -102,7 +102,7 @@ class DSN(torch.optim.Optimizer):
         """
         loss = closure()
         g = flat_grad(loss, self._params, create_graph=False)
-        rho = self._update_trust_radius(float(loss))
+        rho = self._update_trust_radius(float(loss.detach()))
 
         n_hvp = 0
 
@@ -115,10 +115,12 @@ class DSN(torch.optim.Optimizer):
             res = self.builder.build(matvec, g)
             if not torch.isfinite(res.y).all():
                 raise FloatingPointError("non-finite subspace solution")
-        except (FloatingPointError, torch._C._LinAlgError, RuntimeError):
+        except (FloatingPointError, torch._C._LinAlgError):
             self.telemetry = Telemetry(
+                n_hvp=n_hvp,
+                rel_residual=float("nan"),
                 n_fallback=self.telemetry.n_fallback + 1,
-                n_rejected=self.telemetry.n_rejected,
+                n_shrink=self.telemetry.n_shrink,
                 trust_radius=self.trust_radius,
                 rho=rho,
             )
@@ -130,15 +132,24 @@ class DSN(torch.optim.Optimizer):
 
         d_sub = res.W @ res.y if res.W.shape[1] else torch.zeros_like(g)
         norm = d_sub.norm()
+        s = 1.0
         if norm > self.trust_radius:
-            d_sub = d_sub * (self.trust_radius / norm)
+            s = self.trust_radius / norm
+            d_sub = d_sub * s
 
         d_comp = project_out(self.adam.step(g, self.lr), res.W)
 
-        # Predicted reduction of the quadratic model, free from quantities in hand.
+        # Predicted reduction of the quadratic model, scaled by the trust-region
+        # clip factor `s` so a clipped step is judged against the reduction it
+        # actually produces, not the reduction the unclipped Newton step would
+        # have produced (s == 1.0 when no clipping occurred).
         Wg = res.W.T @ g if res.W.shape[1] else g.new_zeros(0)
-        predicted = -(Wg.dot(res.y) + 0.5 * res.y.dot(res.T @ res.y)) if res.W.shape[1] else 0.0
-        self._pending = (float(loss), float(predicted))
+        predicted = (
+            -(s * Wg.dot(res.y) + 0.5 * s * s * res.y.dot(res.T @ res.y))
+            if res.W.shape[1]
+            else 0.0
+        )
+        self._pending = (float(loss.detach()), float(predicted))
 
         self._last_W = res.W
         self._last_d_complement = d_comp
@@ -152,7 +163,7 @@ class DSN(torch.optim.Optimizer):
             step_norm_subspace=float(d_sub.norm()),
             step_norm_complement=float(d_comp.norm()),
             n_fallback=self.telemetry.n_fallback,
-            n_rejected=self.telemetry.n_rejected,
+            n_shrink=self.telemetry.n_shrink,
         )
 
         self._apply(d_sub + d_comp)
