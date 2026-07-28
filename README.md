@@ -32,3 +32,19 @@ All numerical tests run in float64; see `tests/conftest.py`.
     print(opt.telemetry)       # k, n_hvp, rel_residual, reuse_frac, ...
 
 `closure` must rebuild the loss graph on every call.
+
+## Known limitations
+
+DSN's trust region is currently only valid under a **fixed, full-batch**
+closure. Under real mini-batch training the acceptance ratio `rho` --
+`(prev_loss - loss_now) / predicted` -- compares the loss of two
+*different* batches, which is not a meaningful trust-region ratio. On a
+small MLP trained on MNIST with mini-batches, this causes `trust_radius`
+to collapse (observed down to ~1e-11) and the loss to diverge, while
+`torch.optim.AdamW` on the same data converges normally. Root cause,
+isolation experiments, and why removing the trust region is not the fix
+are documented in
+[`docs/superpowers/plans/2026-07-27-dsn-core-task9-findings.md`](docs/superpowers/plans/2026-07-27-dsn-core-task9-findings.md).
+This is tracked by `tests/test_convergence.py::test_trust_region_collapses_under_minibatch_noise`,
+marked `xfail(strict=True)`, and is deferred to Plan 2 -- **do not use DSN
+with mini-batch closures until this is fixed.**
