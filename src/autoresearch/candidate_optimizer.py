@@ -53,7 +53,16 @@ class CandidateOptimizer(torch.optim.Optimizer):
         # constant -- L/R's scale drifts with gradient magnitude, layer size,
         # and training progress, so a fixed absolute eps over-damps small/
         # early matrices and under-damps large/late ones.
-        evals, evecs = torch.linalg.eigh(mat)
+        dim = mat.shape[0]
+        eye = torch.eye(dim, device=mat.device, dtype=mat.dtype)
+        # Tiny absolute stabilization BEFORE eigh: exactly-singular / heavily
+        # repeated-eigenvalue matrices (e.g. R for a Linear layer fed by
+        # sparse ReLU/maxpool features -- many input channels are exactly
+        # zero for every sample seen, so R has exact-zero rows/cols) make the
+        # LAPACK eigensolver itself fail to converge, independent of the
+        # relative damping applied to its output below. MNIST's dense tanh
+        # activations never hit this; CIFAR's sparse conv features do.
+        evals, evecs = torch.linalg.eigh(mat + 1e-10 * eye)
         damping = rel_damping * evals.clamp_min(0.0).max().clamp_min(1e-12)
         evals = evals.clamp_min(damping)
         inv_root_evals = evals.pow(-1.0 / power)
