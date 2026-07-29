@@ -8,6 +8,14 @@ complement.
 - Plan:   `docs/superpowers/plans/2026-07-27-dsn-core.md`
 - Plan 2: `docs/superpowers/plans/2026-07-28-dsn-plan2-fixes.md`
 
+**Result: negative.** `docs/superpowers/plans/2026-07-29-negative-result.md` —
+the mechanism was instrumented at three independent points (does curvature
+preconditioning pay; is recycling break-even; does the augmented-recycling gate
+open) and returns nothing at all three. The pre-registered kill criterion is
+defined on GPU tiers that were never run, so it has not been evaluated; the
+document recommends against running them and explains why. The two supporting
+measurements are `scripts/measure_rho.py` and `scripts/measure_faca_gate.py`.
+
 ## Install
 
     pip install -e ".[dev]"
