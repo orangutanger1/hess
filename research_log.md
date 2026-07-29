@@ -122,3 +122,31 @@ EXCEPTION, TIMEOUT, possibly combined).
 }
 ```
 
+## 20260729T203759Z — committed (improved)
+
+```json
+{
+  "timestamp": "20260729T203759Z",
+  "status": "committed",
+  "decision": "KEEP",
+  "reason": "improved",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.01979719619266689,
+      "n_steps": 3490
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.014796730177477003,
+      "n_steps": 3381
+    }
+  ],
+  "mean_loss": 0.017296963185071946,
+  "baseline_mean": 0.024190044426359233,
+  "snapshot": "src/autoresearch/history/candidate_20260729T203759Z.py"
+}
+```
+

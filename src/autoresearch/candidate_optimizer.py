@@ -6,17 +6,22 @@ the loop (model, data, eval, timeout/divergence handling, keep/discard
 logic, logging) lives outside this file and is not meant to change per
 candidate.
 
-Experiment 3 (20260729): Shampoo-lite with Adam grafting.
+Experiment 4 (20260729): Shampoo-lite + Adam grafting + bias-corrected L/R.
 
 Experiment 2 tried the same Kronecker-factored whitening below but applied
 the raw preconditioned step at the AdamW baseline's lr (1e-3) and diverged
 (mean_loss 373 vs baseline 0.035) -- L^-1/4 G R^-1/4 is not scaled the way
 Adam's per-element-normalized update is, so the same lr is wildly too large.
-This version grafts: keep the Shampoo *direction* (from the accumulated,
+Experiment 3 grafted: keep the Shampoo *direction* (from the accumulated,
 noise-aware Kronecker factors -- still the favored direction per the seed
 knowledge) but rescale each tensor's step to match the norm the diagonal
-Adam accumulator would have taken, so the step *magnitude* is known-good and
-only the *direction* is the thing being tested.
+Adam accumulator would have taken. That beat baseline (0.0242 vs 0.0349) and
+is committed. This experiment adds one more fix in the same spirit as
+AdamW's own bias correction: L and R are EMAs initialized at zero, so their
+early-step values are biased toward zero (over-confident inverse roots)
+exactly like exp_avg_sq would be without bias correction -- divide by
+(1 - beta2**step) before taking the inverse root, same as Adam already does
+for its own denom.
 """
 
 import torch
@@ -98,8 +103,10 @@ class CandidateOptimizer(torch.optim.Optimizer):
                     state["R"].mul_(beta2).add_(grad.T @ grad, alpha=1 - beta2)
 
                     if step == 1 or step % update_freq == 0:
-                        state["L_inv_root"] = self._inv_root(state["L"], 4.0, eps)
-                        state["R_inv_root"] = self._inv_root(state["R"], 4.0, eps)
+                        L_hat = state["L"] / bias_correction2
+                        R_hat = state["R"] / bias_correction2
+                        state["L_inv_root"] = self._inv_root(L_hat, 4.0, eps)
+                        state["R_inv_root"] = self._inv_root(R_hat, 4.0, eps)
 
                     precond_grad = state["L_inv_root"] @ grad @ state["R_inv_root"]
 
