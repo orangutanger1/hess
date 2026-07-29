@@ -66,3 +66,59 @@ EXCEPTION, TIMEOUT, possibly combined).
 }
 ```
 
+## 20260729T203008Z — discarded (worse_loss)
+
+```json
+{
+  "timestamp": "20260729T203008Z",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "worse_loss",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 272.10445098876954,
+      "n_steps": 3388
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 474.0985992431641,
+      "n_steps": 3181
+    }
+  ],
+  "mean_loss": 373.1015251159668,
+  "baseline_mean": 0.03489474025554955,
+  "snapshot": null
+}
+```
+
+## 20260729T203359Z — committed (improved)
+
+```json
+{
+  "timestamp": "20260729T203359Z",
+  "status": "committed",
+  "decision": "KEEP",
+  "reason": "improved",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.021251972718164324,
+      "n_steps": 3147
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.027128116134554146,
+      "n_steps": 3493
+    }
+  ],
+  "mean_loss": 0.024190044426359233,
+  "baseline_mean": 0.03489474025554955,
+  "snapshot": "src/autoresearch/history/candidate_20260729T203359Z.py"
+}
+```
+
