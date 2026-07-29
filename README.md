@@ -4,17 +4,31 @@ Second-order optimization restricted to the smallest dynamically-identified
 subspace that predicts the true Newton step, with AdamW in the orthogonal
 complement.
 
-- Design: `docs/superpowers/specs/2026-07-27-dynamic-subspace-newton-design.md`
-- Plan:   `docs/superpowers/plans/2026-07-27-dsn-core.md`
-- Plan 2: `docs/superpowers/plans/2026-07-28-dsn-plan2-fixes.md`
+## Status: negative result
 
-**Result: negative.** `docs/superpowers/plans/2026-07-29-negative-result.md` —
-the mechanism was instrumented at three independent points (does curvature
-preconditioning pay; is recycling break-even; does the augmented-recycling gate
-open) and returns nothing at all three. The pre-registered kill criterion is
-defined on GPU tiers that were never run, so it has not been evaluated; the
-document recommends against running them and explains why. The two supporting
-measurements are `scripts/measure_rho.py` and `scripts/measure_faca_gate.py`.
+The mechanism was instrumented at three independent points and returns nothing
+at all three.
+
+| question | instrument | answer |
+|---|---|---|
+| Does curvature preconditioning pay on this trajectory? | `scripts/measure_rho.py` | No. The payoff gate caps at 0.717 against a threshold of 1, at every checkpoint. |
+| Does cross-step recycling save curvature products? | Plan 2 | No. Break-even by construction; measured 1.03–1.11x a fresh rebuild. |
+| Does the augmented-recycling break-even gate open? | `scripts/measure_faca_gate.py` | No. Closed or vacuous at every pair, both seeds. |
+
+DSN converges and does not beat AdamW. All ten F-defects found in Plan 2 are
+fixed, so the shortfall is not attributable to a bug.
+
+The pre-registered kill criterion is defined on FLOPs-to-target-loss on the
+CIFAR-10 and WikiText tiers, neither of which was run, so it **has not been
+evaluated**. The writeup recommends against spending that budget and explains
+why; that decision is the project owner's.
+
+- Result:  `docs/superpowers/plans/2026-07-29-negative-result.md`
+- Design:  `docs/superpowers/specs/2026-07-27-dynamic-subspace-newton-design.md`
+- Plan:    `docs/superpowers/plans/2026-07-27-dsn-core.md`
+- Plan 2:  `docs/superpowers/plans/2026-07-28-dsn-plan2-fixes.md`
+- Task 9 findings (F1–F9): `docs/superpowers/plans/2026-07-27-dsn-core-task9-findings.md`
+- FACA gate measurement:   `docs/superpowers/plans/2026-07-28-faca-gate-measurement.md`
 
 ## Install
 
@@ -42,15 +56,37 @@ All numerical tests run in float64; see `tests/conftest.py`.
 
 `closure` must rebuild the loss graph on every call.
 
-## Demo script
+## Scripts
+
+None of these are part of the test suite — they download MNIST, and none of
+them import anything from `src/dsn` that the suite does not already cover.
+`torchvision` comes with `.[dev]`.
+
+### Demo
 
     python scripts/sanity_mnist.py --optimizer adamw    # reference
     python scripts/sanity_mnist.py                      # DSN
 
-`scripts/sanity_mnist.py` is a CPU smoke run on MNIST (it downloads data, so it
-is not part of the test suite; `torchvision` comes with `.[dev]`). Both
-optimizers converge; measured last-10-step mean loss over three seeds at the
-script's defaults: DSN 0.2678 / 0.3010 / 0.2805, AdamW 0.1512 / 0.1781 / 0.1713.
+CPU smoke run. Both optimizers converge; measured last-10-step mean loss over
+three seeds at the script's defaults: DSN 0.2678 / 0.3010 / 0.2805, AdamW
+0.1512 / 0.1781 / 0.1713.
+
+### Measurement
+
+Instruments for the two gates in "Status" above. Measurement only — neither
+touches `src/` or contains solver code; both reuse `lanczos_iter` and the
+optimizer as shipped.
+
+    python scripts/measure_rho.py --steps 200 --k 100 --micro 24 --out rho.json
+
+    python scripts/measure_faca_gate.py --steps 60 --k-max 8                        # shipped config
+    python scripts/measure_faca_gate.py --steps 60 --k-max 40 --m-recycle 8          # recycling engages
+    python scripts/measure_faca_gate.py --steps 60 --k-max 40 --m-recycle 8 --fixed-batch
+    python scripts/measure_faca_gate.py --steps 60 --k-max 40 --m-recycle 8 --seed 1
+
+At the shipped `--k-max 8` the FACA gate is dead for a trivial reason (at most
+one direction is ever carried, so `m_eff - 1 < 0` always); the `k_max=40` runs
+are the ones the verdict rests on.
 
 ## Cost per step
 
@@ -62,6 +98,45 @@ re-projecting the recycled basis against the current operator.
 ## Known limitations
 
 ### Numerical
+
+**Curvature preconditioning does not pay on this problem, at any point in
+training.** Measured directly rather than inferred from a loss curve. With
+
+    lambda_g   = ||g||^2 / (g' M^-1 g)
+    lambda_Sig = sqrt( tr(M Sigma) / tr(M^-1 Sigma) )
+    rho        = (lambda_Sig / lambda_g)^2
+
+the gate opens at `rho >= 1`. (This `rho` is the payoff gate, unrelated to the
+trust-region acceptance ratio also called `rho` below and in
+`optimizer.py`.) Below 1, the gradient sits in directions sharper than the ones
+the gradient noise occupies, so dividing by curvature amplifies noise faster
+than signal.
+
+On DSN's own MNIST trajectory `lambda_Sig < lambda_g` at every checkpoint, and
+`rho` maxes at **0.717** over all 72 `(step, delta, k)` cells. It is not static
+— at the converged `delta=1e-2` it runs 0.154 at step 0, peaks at 0.650 near
+step 120, and falls back to 0.162 by step 199 — but the whole sweep lives in
+`[0.045, 0.72]` and never crosses. Split-half spread on `Sigma` is ~±30%
+relative, far short of the ~2x that would be needed to reach 1 anywhere.
+
+This is upstream of everything below. A cheaper or fresher subspace does not
+help if the preconditioner it builds has negative expected value, which is why
+fixing all ten F-defects did not change the outcome.
+
+Measured against `M = |H| + delta`, not `H`: the exact Hessian here is
+indefinite (`neg_frac`, the `g^2`-weighted mass on negative curvature, is 0.404
+at step 0), so `H^-1` is not a preconditioner and `g' H^-1 g` can go negative.
+`M` is what `solve.subspace_newton` inverts, so `M` is what "curvature
+preconditioning" means for this code. The same fact independently breaks the
+FACA gate's contraction premise — `||H d + g||` is the residual of a system the
+solver is deliberately not solving, so it has no reason to decrease in `k`, and
+it doesn't.
+
+Converged for `delta` in {1e-2, 1e-1} (stable to ~1% across `k` =
+25/50/75/100). `delta=1e-3`, the shipped default, is not converged at `k=100` —
+expected, since `lambda_g` is a harmonic mean and Lanczos resolves the smallest
+eigenvalues last — but it is bracketed by the converged values and is also
+below 1 everywhere.
 
 **Recycling (`m_recycle > 0`) does not reduce curvature-product count, and often
 does not engage at all.** Both follow from paying for it honestly, and neither
