@@ -531,3 +531,32 @@ EXCEPTION, TIMEOUT, possibly combined).
 }
 ```
 
+## 20260729T222826Z — committed (baseline)
+
+```json
+{
+  "timestamp": "20260729T222826Z",
+  "benchmark": "cifar",
+  "status": "committed",
+  "decision": "KEEP",
+  "reason": "baseline",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.7323371469974518,
+      "n_steps": 2050
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.6142466038465499,
+      "n_steps": 2040
+    }
+  ],
+  "mean_loss": 0.6732918754220009,
+  "baseline_mean": null,
+  "snapshot": "src/autoresearch/history/candidate_20260729T222826Z.py"
+}
+```
+
