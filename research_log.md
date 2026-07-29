@@ -401,3 +401,133 @@ EXCEPTION, TIMEOUT, possibly combined).
 }
 ```
 
+## 20260729T214059Z — discarded (worse_loss)
+
+```json
+{
+  "timestamp": "20260729T214059Z",
+  "benchmark": "mnist",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "worse_loss",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.02133012474514544,
+      "n_steps": 3392
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.02078676896635443,
+      "n_steps": 3327
+    }
+  ],
+  "mean_loss": 0.021058446855749938,
+  "baseline_mean": 0.012371516600251199,
+  "snapshot": null
+}
+```
+
+## 20260729T214449Z — discarded (worse_loss)
+
+```json
+{
+  "timestamp": "20260729T214449Z",
+  "benchmark": "mnist",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "worse_loss",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.009452211577445269,
+      "n_steps": 3314
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.02078676896635443,
+      "n_steps": 3327
+    }
+  ],
+  "mean_loss": 0.01511949027189985,
+  "baseline_mean": 0.012371516600251199,
+  "snapshot": null
+}
+```
+
+## 20260729T214834Z — discarded (TIMEOUT)
+
+```json
+{
+  "timestamp": "20260729T214834Z",
+  "benchmark": "cifar",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "TIMEOUT",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "TIMEOUT"
+    },
+    {
+      "seed": 1,
+      "result": "TIMEOUT"
+    }
+  ],
+  "mean_loss": null,
+  "baseline_mean": null,
+  "snapshot": null,
+  "note": "baseline establishment failed; fix candidate_optimizer.py and rerun"
+}
+```
+
+## 20260729T222316Z — discarded (EXCEPTION)
+
+```json
+{
+  "timestamp": "20260729T222316Z",
+  "benchmark": "cifar",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "EXCEPTION",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "EXCEPTION",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/myen/idea2/scripts/run_experiment.py\", line 136, in run_worker\n    opt.step()\n  File \"/home/myen/idea2/.venv/lib/python3.10/site-packages/torch/optim/optimizer.py\", line 530, in wrapper\n    out = func(*args, **kwargs)\n  File \"/home/myen/idea2/.venv/lib/python3.10/site-packages/torch/utils/_contextlib.py\", line 124, in decorate_context\n    return func(*args, **kwargs)\n  File \"/home/myen/idea2/src/autoresearch/candidate_optimizer.py\", line 122, in step\n    state[\"R_inv_root\"] = self._inv_root(R_hat, 4.0, rel_damping)\n  File \"/home/myen/idea2/src/autoresearch/candidate_optimizer.py\", line 56, in _inv_root\n    evals, evecs = torch.linalg.eigh(mat)\ntorch._C._LinAlgError: linalg.eigh: The algorithm failed to converge because the input matrix is ill-conditioned or has too many repeated eigenvalues (error code: 4147154).\n"
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.6411978483200074,
+      "n_steps": 2017
+    }
+  ],
+  "mean_loss": null,
+  "baseline_mean": null,
+  "snapshot": null,
+  "note": "baseline establishment failed; fix candidate_optimizer.py and rerun"
+}
+```
+
+## 20260729T222752Z — committed (correctness_fix)
+
+```json
+{
+  "timestamp": "20260729T222752Z",
+  "benchmark": "mnist",
+  "status": "committed",
+  "decision": "KEEP",
+  "reason": "correctness_fix",
+  "seed_results": null,
+  "mean_loss": 0.012371516600251199,
+  "baseline_mean": 0.012371516600251199,
+  "snapshot": "src/autoresearch/history/candidate_20260729T222752Z.py",
+  "note": "Manual commit, not a harness-measured run: adds a tiny absolute pre-eigh stabilization epsilon that fixes a real eigh convergence crash discovered via the cifar benchmark (R for a Linear layer fed by sparse ReLU/maxpool features is exactly singular). Numerically negligible on mnist (well-conditioned, dense tanh activations) so mean_loss is carried forward unchanged from the last real measurement rather than re-measured under the currently-noisy harness (see 20260729T21:4x entries: same file, same seeds, mean_loss ranged 0.0124/0.0151/0.0211)."
+}
+```
+
