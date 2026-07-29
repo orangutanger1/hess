@@ -21,7 +21,16 @@ AdamW's own bias correction: L and R are EMAs initialized at zero, so their
 early-step values are biased toward zero (over-confident inverse roots)
 exactly like exp_avg_sq would be without bias correction -- divide by
 (1 - beta2**step) before taking the inverse root, same as Adam already does
-for its own denom.
+for its own denom. Committed: 0.0173 vs baseline 0.0349.
+
+Experiment 6 (20260729): relative eigenvalue damping instead of absolute.
+_inv_root's damping floor was a fixed absolute eps (1e-8) added to L/R's
+eigenvalues. But L/R's scale drifts with gradient magnitude, layer size, and
+how far into the EMA window training is -- an absolute floor over-damps
+small/early matrices and under-damps large/late ones, which is a structural
+scale-inconsistency bug in the whitening, not a tunable knob. Damp relative
+to each matrix's own top eigenvalue instead (rel_damping * max_eigenvalue),
+so the correction is scale-invariant per layer and per training step.
 """
 
 import torch
@@ -29,21 +38,24 @@ import torch
 
 class CandidateOptimizer(torch.optim.Optimizer):
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
-                 weight_decay=0.01, precond_update_freq=10):
+                 weight_decay=0.01, precond_update_freq=10, rel_damping=1e-4):
         if lr <= 0.0:
             raise ValueError(f"invalid lr: {lr}")
         if not 0.0 <= betas[0] < 1.0 or not 0.0 <= betas[1] < 1.0:
             raise ValueError(f"invalid betas: {betas}")
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay,
-                         precond_update_freq=precond_update_freq)
+                         precond_update_freq=precond_update_freq, rel_damping=rel_damping)
         super().__init__(params, defaults)
 
     @staticmethod
-    def _inv_root(mat, power, eps):
-        dim = mat.shape[0]
-        eye = torch.eye(dim, device=mat.device, dtype=mat.dtype)
-        evals, evecs = torch.linalg.eigh(mat + eps * eye)
-        evals = evals.clamp_min(eps)
+    def _inv_root(mat, power, rel_damping):
+        # Damp relative to this matrix's own top eigenvalue, not an absolute
+        # constant -- L/R's scale drifts with gradient magnitude, layer size,
+        # and training progress, so a fixed absolute eps over-damps small/
+        # early matrices and under-damps large/late ones.
+        evals, evecs = torch.linalg.eigh(mat)
+        damping = rel_damping * evals.clamp_min(0.0).max().clamp_min(1e-12)
+        evals = evals.clamp_min(damping)
         inv_root_evals = evals.pow(-1.0 / power)
         return (evecs * inv_root_evals.unsqueeze(0)) @ evecs.T
 
@@ -60,6 +72,7 @@ class CandidateOptimizer(torch.optim.Optimizer):
             eps = group["eps"]
             weight_decay = group["weight_decay"]
             update_freq = group["precond_update_freq"]
+            rel_damping = group["rel_damping"]
 
             for p in group["params"]:
                 if p.grad is None:
@@ -105,8 +118,8 @@ class CandidateOptimizer(torch.optim.Optimizer):
                     if step == 1 or step % update_freq == 0:
                         L_hat = state["L"] / bias_correction2
                         R_hat = state["R"] / bias_correction2
-                        state["L_inv_root"] = self._inv_root(L_hat, 4.0, eps)
-                        state["R_inv_root"] = self._inv_root(R_hat, 4.0, eps)
+                        state["L_inv_root"] = self._inv_root(L_hat, 4.0, rel_damping)
+                        state["R_inv_root"] = self._inv_root(R_hat, 4.0, rel_damping)
 
                     precond_grad = state["L_inv_root"] @ grad @ state["R_inv_root"]
 

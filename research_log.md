@@ -150,3 +150,87 @@ EXCEPTION, TIMEOUT, possibly combined).
 }
 ```
 
+## 20260729T204136Z — discarded (worse_loss)
+
+```json
+{
+  "timestamp": "20260729T204136Z",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "worse_loss",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.020407907385379075,
+      "n_steps": 2228
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.030257870256900788,
+      "n_steps": 2250
+    }
+  ],
+  "mean_loss": 0.02533288882113993,
+  "baseline_mean": 0.017296963185071946,
+  "snapshot": null
+}
+```
+
+## 20260729T204509Z — discarded (worse_loss)
+
+```json
+{
+  "timestamp": "20260729T204509Z",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "worse_loss",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.020262173586525024,
+      "n_steps": 3302
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.02182003636844456,
+      "n_steps": 3012
+    }
+  ],
+  "mean_loss": 0.021041104977484792,
+  "baseline_mean": 0.017296963185071946,
+  "snapshot": null
+}
+```
+
+## 20260729T210348Z — committed (improved)
+
+```json
+{
+  "timestamp": "20260729T210348Z",
+  "status": "committed",
+  "decision": "KEEP",
+  "reason": "improved",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.012021053303033113,
+      "n_steps": 3114
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.012721979897469282,
+      "n_steps": 3342
+    }
+  ],
+  "mean_loss": 0.012371516600251199,
+  "baseline_mean": 0.017296963185071946,
+  "snapshot": "src/autoresearch/history/candidate_20260729T210348Z.py"
+}
+```
+
