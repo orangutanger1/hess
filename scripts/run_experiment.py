@@ -1,18 +1,31 @@
 """Fixed-budget runner for the autoresearch loop.
 
-Trains src/autoresearch/candidate_optimizer.py's CandidateOptimizer on
-scripts/sanity_mnist.py's unmodified model/data/eval setup, for a fixed 90
-seconds of wall-clock time per seed, across 2 seeds. Compares the mean of
-the two seed losses against the last-committed best in research_log.md and
-either keeps (snapshotting candidate_optimizer.py under
-src/autoresearch/history/) or discards (reverting candidate_optimizer.py to
-the last committed snapshot). Every attempt is logged.
+Trains src/autoresearch/candidate_optimizer.py's CandidateOptimizer on a
+benchmark's model/data/eval setup, for a fixed wall-clock time per seed
+(default 90s, override with --budget-seconds), across 2 seeds. Compares the
+mean of the two seed losses against the last-committed best *for that
+benchmark* in research_log.md and either keeps (snapshotting
+candidate_optimizer.py under src/autoresearch/history/) or discards
+(reverting candidate_optimizer.py to the last committed snapshot for that
+benchmark). Every attempt is logged, tagged with which benchmark it ran.
+
+Benchmarks (--benchmark, default mnist):
+    mnist  scripts/sanity_mnist.py's model, MNIST digits (Linear-only).
+    cifar  scripts/sanity_cifar.py's model, CIFAR-10 (has conv layers --
+           the thing MNIST's benchmark can never exercise). Each benchmark
+           keeps its own independent committed-baseline chain (entries are
+           tagged "benchmark" in research_log.md; untagged legacy entries
+           are treated as "mnist" for backward compatibility) so a mnist
+           improvement and a cifar improvement never get compared against
+           each other's loss scale.
 
 This file is the ONLY thing invoked by the loop. It is not the file future
 agent sessions edit -- that's src/autoresearch/candidate_optimizer.py.
 
 Usage:
-    python scripts/run_experiment.py                # run one iteration
+    python scripts/run_experiment.py                        # one mnist run
+    python scripts/run_experiment.py --benchmark cifar \\
+        --budget-seconds 300                                # one cifar run
     python scripts/run_experiment.py --worker ...    # internal: single-seed
                                                       # subprocess, not for
                                                       # direct use.
@@ -36,12 +49,27 @@ import torch
 from torchvision import datasets, transforms
 
 from _device import resolve_device
-from sanity_mnist import build_model
+from sanity_mnist import build_model as build_mnist_model
+from sanity_cifar import build_model as build_cifar_model
 from autoresearch.candidate_optimizer import CandidateOptimizer
 
 SEEDS = (0, 1)
 BUDGET_SECONDS = 90
 TIMEOUT_SECONDS = 2 * BUDGET_SECONDS
+DEFAULT_BENCHMARK = "mnist"
+
+BENCHMARKS = {
+    "mnist": {
+        "build_model": build_mnist_model,
+        "dataset_cls": datasets.MNIST,
+        "dataset_kwargs": {"transform": transforms.ToTensor()},
+    },
+    "cifar": {
+        "build_model": build_cifar_model,
+        "dataset_cls": datasets.CIFAR10,
+        "dataset_kwargs": {"transform": transforms.ToTensor()},
+    },
+}
 
 THIS_FILE = Path(__file__).resolve()
 REPO_ROOT = THIS_FILE.parents[1]
@@ -74,18 +102,20 @@ def _write_result(result_path, result):
         json.dump(result, f)
 
 
-def run_worker(seed, budget_seconds, lr, batch_size, device_name, result_path):
+def run_worker(seed, budget_seconds, lr, batch_size, device_name, result_path,
+                benchmark=DEFAULT_BENCHMARK):
     result = {"seed": seed}
     try:
+        bench = BENCHMARKS[benchmark]
         device = resolve_device(device_name)
         torch.manual_seed(seed)
-        ds = datasets.MNIST(
-            "data", train=True, download=True, transform=transforms.ToTensor()
+        ds = bench["dataset_cls"](
+            "data", train=True, download=True, **bench["dataset_kwargs"]
         )
         loader = torch.utils.data.DataLoader(
             ds, batch_size=batch_size, shuffle=True
         )
-        model = build_model().to(device)
+        model = bench["build_model"]().to(device)
         opt = CandidateOptimizer(model.parameters(), lr=lr, weight_decay=0.0)
 
         losses = []
@@ -133,7 +163,8 @@ def run_worker(seed, budget_seconds, lr, batch_size, device_name, result_path):
         _write_result(result_path, result)
 
 
-def run_seed_subprocess(seed, budget_seconds, timeout_seconds, lr, batch_size, device):
+def run_seed_subprocess(seed, budget_seconds, timeout_seconds, lr, batch_size, device,
+                         benchmark=DEFAULT_BENCHMARK):
     fd, result_path = tempfile.mkstemp(prefix=f"autoresearch_seed{seed}_", suffix=".json")
     os.close(fd)
     os.remove(result_path)  # worker creates it fresh; absence means it never got there
@@ -145,6 +176,7 @@ def run_seed_subprocess(seed, budget_seconds, timeout_seconds, lr, batch_size, d
         "--lr", str(lr),
         "--batch-size", str(batch_size),
         "--device", device,
+        "--benchmark", benchmark,
         "--result-file", result_path,
     ]
     proc = subprocess.Popen(cmd)
@@ -177,7 +209,7 @@ def run_seed_subprocess(seed, budget_seconds, timeout_seconds, lr, batch_size, d
 _JSON_BLOCK_RE = re.compile(r"```json\n(.*?)\n```", re.DOTALL)
 
 
-def get_last_committed():
+def get_last_committed(benchmark=DEFAULT_BENCHMARK):
     if not LOG_PATH.exists():
         return None
     text = LOG_PATH.read_text()
@@ -187,7 +219,8 @@ def get_last_committed():
             entry = json.loads(match.group(1))
         except json.JSONDecodeError:
             continue
-        if entry.get("status") == "committed":
+        # Legacy entries predate --benchmark and are all mnist runs.
+        if entry.get("status") == "committed" and entry.get("benchmark", "mnist") == benchmark:
             committed.append(entry)
     return committed[-1] if committed else None
 
@@ -229,12 +262,14 @@ def revert_to_snapshot(relative_snapshot_path):
 # Main: run both seeds, decide keep/discard, log, exit.
 # --------------------------------------------------------------------------
 
-def main_experiment(lr, batch_size, device, budget_seconds=BUDGET_SECONDS):
+def main_experiment(lr, batch_size, device, budget_seconds=BUDGET_SECONDS,
+                     benchmark=DEFAULT_BENCHMARK):
     timeout_seconds = 2 * budget_seconds
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     seed_results = [
-        run_seed_subprocess(seed, budget_seconds, timeout_seconds, lr, batch_size, device)
+        run_seed_subprocess(seed, budget_seconds, timeout_seconds, lr, batch_size, device,
+                             benchmark)
         for seed in SEEDS
     ]
     for r in seed_results:
@@ -245,7 +280,7 @@ def main_experiment(lr, batch_size, device, budget_seconds=BUDGET_SECONDS):
     all_ok = all(s == "OK" for s in statuses)
     cleaned = [clean_seed_result(r) for r in seed_results]
 
-    last = get_last_committed()
+    last = get_last_committed(benchmark)
 
     if last is None:
         if all_ok:
@@ -253,6 +288,7 @@ def main_experiment(lr, batch_size, device, budget_seconds=BUDGET_SECONDS):
             snapshot = save_snapshot(timestamp)
             entry = {
                 "timestamp": timestamp,
+                "benchmark": benchmark,
                 "status": "committed",
                 "decision": "KEEP",
                 "reason": "baseline",
@@ -268,6 +304,7 @@ def main_experiment(lr, batch_size, device, budget_seconds=BUDGET_SECONDS):
             reason = ",".join(sorted({s for s in statuses if s != "OK"}))
             entry = {
                 "timestamp": timestamp,
+                "benchmark": benchmark,
                 "status": "discarded",
                 "decision": "DISCARD",
                 "reason": reason,
@@ -289,6 +326,7 @@ def main_experiment(lr, batch_size, device, budget_seconds=BUDGET_SECONDS):
             snapshot = save_snapshot(timestamp)
             entry = {
                 "timestamp": timestamp,
+                "benchmark": benchmark,
                 "status": "committed",
                 "decision": "KEEP",
                 "reason": "improved",
@@ -304,6 +342,7 @@ def main_experiment(lr, batch_size, device, budget_seconds=BUDGET_SECONDS):
             revert_to_snapshot(last["snapshot"])
             entry = {
                 "timestamp": timestamp,
+                "benchmark": benchmark,
                 "status": "discarded",
                 "decision": "DISCARD",
                 "reason": "worse_loss",
@@ -320,6 +359,7 @@ def main_experiment(lr, batch_size, device, budget_seconds=BUDGET_SECONDS):
         revert_to_snapshot(last["snapshot"])
         entry = {
             "timestamp": timestamp,
+            "benchmark": benchmark,
             "status": "discarded",
             "decision": "DISCARD",
             "reason": reason,
@@ -341,17 +381,20 @@ def main():
     ap.add_argument("--lr", type=float, default=1e-2)
     ap.add_argument("--batch-size", type=int, default=256)
     ap.add_argument("--budget-seconds", type=float, default=BUDGET_SECONDS,
-                     help=argparse.SUPPRESS)
+                     help="wall-clock seconds per seed (default 90)")
     ap.add_argument("--device", type=str, default="auto")
+    ap.add_argument("--benchmark", type=str, default=DEFAULT_BENCHMARK,
+                     choices=sorted(BENCHMARKS), help="which benchmark to train/eval on")
     args = ap.parse_args()
 
     if args.worker:
         assert args.seed is not None and args.result_file is not None
         run_worker(args.seed, args.budget_seconds, args.lr, args.batch_size,
-                   args.device, args.result_file)
+                   args.device, args.result_file, args.benchmark)
         return 0
 
-    return main_experiment(args.lr, args.batch_size, args.device, args.budget_seconds)
+    return main_experiment(args.lr, args.batch_size, args.device, args.budget_seconds,
+                            args.benchmark)
 
 
 if __name__ == "__main__":

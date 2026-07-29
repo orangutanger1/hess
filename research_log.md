@@ -234,3 +234,170 @@ EXCEPTION, TIMEOUT, possibly combined).
 }
 ```
 
+## 20260729T210745Z — discarded (EXCEPTION)
+
+```json
+{
+  "timestamp": "20260729T210745Z",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "EXCEPTION",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "EXCEPTION",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/myen/idea2/scripts/run_experiment.py\", line 106, in run_worker\n    opt.step()\n  File \"/home/myen/idea2/.venv/lib/python3.10/site-packages/torch/optim/optimizer.py\", line 530, in wrapper\n    out = func(*args, **kwargs)\n  File \"/home/myen/idea2/.venv/lib/python3.10/site-packages/torch/utils/_contextlib.py\", line 124, in decorate_context\n    return func(*args, **kwargs)\n  File \"/home/myen/idea2/src/autoresearch/candidate_optimizer.py\", line 142, in step\n    L_shrink = rel_damping * max(1.0, out_dim / effective_n)\nUnboundLocalError: local variable 'out_dim' referenced before assignment\n"
+    },
+    {
+      "seed": 1,
+      "result": "EXCEPTION",
+      "traceback": "Traceback (most recent call last):\n  File \"/home/myen/idea2/scripts/run_experiment.py\", line 106, in run_worker\n    opt.step()\n  File \"/home/myen/idea2/.venv/lib/python3.10/site-packages/torch/optim/optimizer.py\", line 530, in wrapper\n    out = func(*args, **kwargs)\n  File \"/home/myen/idea2/.venv/lib/python3.10/site-packages/torch/utils/_contextlib.py\", line 124, in decorate_context\n    return func(*args, **kwargs)\n  File \"/home/myen/idea2/src/autoresearch/candidate_optimizer.py\", line 142, in step\n    L_shrink = rel_damping * max(1.0, out_dim / effective_n)\nUnboundLocalError: local variable 'out_dim' referenced before assignment\n"
+    }
+  ],
+  "mean_loss": null,
+  "baseline_mean": 0.012371516600251199,
+  "snapshot": null
+}
+```
+
+## 20260729T210833Z — discarded (worse_loss)
+
+```json
+{
+  "timestamp": "20260729T210833Z",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "worse_loss",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.016835341742262245,
+      "n_steps": 3301
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.021706694597378375,
+      "n_steps": 3275
+    }
+  ],
+  "mean_loss": 0.01927101816982031,
+  "baseline_mean": 0.012371516600251199,
+  "snapshot": null
+}
+```
+
+## 20260729T211214Z — discarded (worse_loss)
+
+```json
+{
+  "timestamp": "20260729T211214Z",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "worse_loss",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.02649160586297512,
+      "n_steps": 3289
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.023773078713566063,
+      "n_steps": 3294
+    }
+  ],
+  "mean_loss": 0.02513234228827059,
+  "baseline_mean": 0.012371516600251199,
+  "snapshot": null
+}
+```
+
+## 20260729T211713Z — discarded (worse_loss)
+
+```json
+{
+  "timestamp": "20260729T211713Z",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "worse_loss",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.012821777630597353,
+      "n_steps": 3463
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.020681920321658255,
+      "n_steps": 3369
+    }
+  ],
+  "mean_loss": 0.016751848976127803,
+  "baseline_mean": 0.012371516600251199,
+  "snapshot": null
+}
+```
+
+## 20260729T212106Z — discarded (worse_loss)
+
+```json
+{
+  "timestamp": "20260729T212106Z",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "worse_loss",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.022330644261091947,
+      "n_steps": 3237
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.01796280425041914,
+      "n_steps": 3449
+    }
+  ],
+  "mean_loss": 0.020146724255755543,
+  "baseline_mean": 0.012371516600251199,
+  "snapshot": null
+}
+```
+
+## 20260729T213927Z — discarded (worse_loss)
+
+```json
+{
+  "timestamp": "20260729T213927Z",
+  "benchmark": "mnist",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "worse_loss",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.1429540552198887,
+      "n_steps": 179
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.13976833671331407,
+      "n_steps": 178
+    }
+  ],
+  "mean_loss": 0.14136119596660138,
+  "baseline_mean": 0.012371516600251199,
+  "snapshot": null
+}
+```
+
