@@ -64,6 +64,7 @@ import time
 import torch
 from torchvision import datasets, transforms
 
+from _device import add_device_arg, resolve_device
 from dsn import DSN
 from dsn.curvature import hvp
 from dsn.lanczos import lanczos_iter
@@ -173,7 +174,11 @@ def main():
     ap.add_argument("--micro", type=int, default=16, help="microbatches for Sigma")
     ap.add_argument("--micro-batch", type=int, default=128)
     ap.add_argument("--out", type=str, default="")
+    add_device_arg(ap)
     args = ap.parse_args()
+
+    device = resolve_device(args.device)
+    print(f"device: {device}")
 
     torch.manual_seed(0)
     ds = datasets.MNIST("data", train=True, download=True,
@@ -183,12 +188,12 @@ def main():
     # Fixed, disjoint pools. The curvature batch defines H and g; the microbatch
     # pool defines Sigma and shares no sample with it.
     n_micro_pool = args.micro * args.micro_batch
-    flat = torch.stack([ds[i][0] for i in range(args.curv_batch + n_micro_pool)])
-    labels = torch.tensor([ds[i][1] for i in range(args.curv_batch + n_micro_pool)])
+    flat = torch.stack([ds[i][0] for i in range(args.curv_batch + n_micro_pool)]).to(device)
+    labels = torch.tensor([ds[i][1] for i in range(args.curv_batch + n_micro_pool)]).to(device)
     x_c, y_c = flat[: args.curv_batch], labels[: args.curv_batch]
     x_m, y_m = flat[args.curv_batch:], labels[args.curv_batch:]
 
-    model = build_model()
+    model = build_model().to(device)
     params = list(model.parameters())
     opt = DSN(model.parameters(), lr=args.lr, weight_decay=0.0,
               builder=KrylovBuilder(k_max=8, m_recycle=4, tau=0.1))
@@ -224,6 +229,7 @@ def main():
         except StopIteration:
             it = iter(loader)
             x, y = next(it)
+        x, y = x.to(device), y.to(device)
 
         def train_closure():
             return torch.nn.functional.cross_entropy(model(x), y)

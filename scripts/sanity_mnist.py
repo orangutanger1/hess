@@ -27,6 +27,7 @@ import time
 import torch
 from torchvision import datasets, transforms
 
+from _device import add_device_arg, resolve_device
 from dsn import DSN
 from dsn.subspace import KrylovBuilder
 
@@ -46,7 +47,11 @@ def main():
     ap.add_argument("--batch-size", type=int, default=256)
     ap.add_argument("--optimizer", choices=["dsn", "adamw"], default="dsn")
     ap.add_argument("--lr", type=float, default=1e-2)
+    add_device_arg(ap)
     args = ap.parse_args()
+
+    device = resolve_device(args.device)
+    print(f"device: {device}")
 
     torch.manual_seed(0)
     ds = datasets.MNIST(
@@ -54,7 +59,7 @@ def main():
     )
     loader = torch.utils.data.DataLoader(ds, batch_size=args.batch_size, shuffle=True)
 
-    model = build_model()
+    model = build_model().to(device)
     if args.optimizer == "dsn":
         opt = DSN(model.parameters(), lr=args.lr, weight_decay=0.0,
                   builder=KrylovBuilder(k_max=8, m_recycle=4, tau=0.1))
@@ -69,6 +74,7 @@ def main():
         except StopIteration:
             it = iter(loader)
             x, y = next(it)
+        x, y = x.to(device), y.to(device)
 
         def closure():
             return torch.nn.functional.cross_entropy(model(x), y)

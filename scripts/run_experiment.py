@@ -1,0 +1,358 @@
+"""Fixed-budget runner for the autoresearch loop.
+
+Trains src/autoresearch/candidate_optimizer.py's CandidateOptimizer on
+scripts/sanity_mnist.py's unmodified model/data/eval setup, for a fixed 90
+seconds of wall-clock time per seed, across 2 seeds. Compares the mean of
+the two seed losses against the last-committed best in research_log.md and
+either keeps (snapshotting candidate_optimizer.py under
+src/autoresearch/history/) or discards (reverting candidate_optimizer.py to
+the last committed snapshot). Every attempt is logged.
+
+This file is the ONLY thing invoked by the loop. It is not the file future
+agent sessions edit -- that's src/autoresearch/candidate_optimizer.py.
+
+Usage:
+    python scripts/run_experiment.py                # run one iteration
+    python scripts/run_experiment.py --worker ...    # internal: single-seed
+                                                      # subprocess, not for
+                                                      # direct use.
+"""
+
+import argparse
+import json
+import math
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import traceback
+from datetime import datetime, timezone
+from pathlib import Path
+
+import torch
+from torchvision import datasets, transforms
+
+from _device import resolve_device
+from sanity_mnist import build_model
+from autoresearch.candidate_optimizer import CandidateOptimizer
+
+SEEDS = (0, 1)
+BUDGET_SECONDS = 90
+TIMEOUT_SECONDS = 2 * BUDGET_SECONDS
+
+THIS_FILE = Path(__file__).resolve()
+REPO_ROOT = THIS_FILE.parents[1]
+CANDIDATE_PATH = REPO_ROOT / "src" / "autoresearch" / "candidate_optimizer.py"
+HISTORY_DIR = REPO_ROOT / "src" / "autoresearch" / "history"
+LOG_PATH = REPO_ROOT / "research_log.md"
+
+LOG_HEADER = """# Autoresearch log
+
+Fixed-budget optimizer search over src/autoresearch/candidate_optimizer.py,
+driven by scripts/run_experiment.py. Each entry is one experiment attempt:
+2 seeds x 90s wall-clock each, against scripts/sanity_mnist.py's model/data.
+
+`status: committed` entries are candidates that beat the prior committed
+mean and whose optimizer was snapshotted to src/autoresearch/history/.
+Everything else is `status: discarded`; `reason` distinguishes
+"tried and lost" (worse_loss) from "tried and broke" (any of DIVERGED,
+EXCEPTION, TIMEOUT, possibly combined).
+
+"""
+
+
+# --------------------------------------------------------------------------
+# Worker: trains one seed in its own process so the parent can enforce a
+# hard wall-clock timeout by killing it.
+# --------------------------------------------------------------------------
+
+def _write_result(result_path, result):
+    with open(result_path, "w") as f:
+        json.dump(result, f)
+
+
+def run_worker(seed, budget_seconds, lr, batch_size, device_name, result_path):
+    result = {"seed": seed}
+    try:
+        device = resolve_device(device_name)
+        torch.manual_seed(seed)
+        ds = datasets.MNIST(
+            "data", train=True, download=True, transform=transforms.ToTensor()
+        )
+        loader = torch.utils.data.DataLoader(
+            ds, batch_size=batch_size, shuffle=True
+        )
+        model = build_model().to(device)
+        opt = CandidateOptimizer(model.parameters(), lr=lr, weight_decay=0.0)
+
+        losses = []
+        it = iter(loader)
+        step = 0
+        t0 = time.time()
+        while time.time() - t0 < budget_seconds:
+            try:
+                x, y = next(it)
+            except StopIteration:
+                it = iter(loader)
+                x, y = next(it)
+            x, y = x.to(device), y.to(device)
+
+            opt.zero_grad()
+            loss = torch.nn.functional.cross_entropy(model(x), y)
+            loss.backward()
+            opt.step()
+
+            loss_value = float(loss.detach())
+            if math.isnan(loss_value) or math.isinf(loss_value):
+                result["result"] = "DIVERGED"
+                result["step"] = step
+                _write_result(result_path, result)
+                return
+            losses.append(loss_value)
+            step += 1
+
+        if not losses:
+            result["result"] = "EXCEPTION"
+            result["traceback"] = (
+                f"budget of {budget_seconds}s elapsed before a single step completed"
+            )
+            _write_result(result_path, result)
+            return
+
+        tail = losses[-10:]
+        result["result"] = "OK"
+        result["n_steps"] = step
+        result["loss"] = sum(tail) / len(tail)
+        _write_result(result_path, result)
+    except Exception:
+        result["result"] = "EXCEPTION"
+        result["traceback"] = traceback.format_exc()
+        _write_result(result_path, result)
+
+
+def run_seed_subprocess(seed, budget_seconds, timeout_seconds, lr, batch_size, device):
+    fd, result_path = tempfile.mkstemp(prefix=f"autoresearch_seed{seed}_", suffix=".json")
+    os.close(fd)
+    os.remove(result_path)  # worker creates it fresh; absence means it never got there
+    cmd = [
+        sys.executable, str(THIS_FILE),
+        "--worker",
+        "--seed", str(seed),
+        "--budget-seconds", str(budget_seconds),
+        "--lr", str(lr),
+        "--batch-size", str(batch_size),
+        "--device", device,
+        "--result-file", result_path,
+    ]
+    proc = subprocess.Popen(cmd)
+    try:
+        proc.wait(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        if os.path.exists(result_path):
+            os.remove(result_path)
+        return {"seed": seed, "result": "TIMEOUT"}
+
+    if os.path.exists(result_path):
+        with open(result_path) as f:
+            data = json.load(f)
+        os.remove(result_path)
+        return data
+    return {
+        "seed": seed,
+        "result": "EXCEPTION",
+        "traceback": f"worker exited (code {proc.returncode}) without writing a result",
+    }
+
+
+# --------------------------------------------------------------------------
+# Log: append-only, ```json``` blocks inside markdown headers so both
+# humans (skim the headers) and this script (parse the json) read it.
+# --------------------------------------------------------------------------
+
+_JSON_BLOCK_RE = re.compile(r"```json\n(.*?)\n```", re.DOTALL)
+
+
+def get_last_committed():
+    if not LOG_PATH.exists():
+        return None
+    text = LOG_PATH.read_text()
+    committed = []
+    for match in _JSON_BLOCK_RE.finditer(text):
+        try:
+            entry = json.loads(match.group(1))
+        except json.JSONDecodeError:
+            continue
+        if entry.get("status") == "committed":
+            committed.append(entry)
+    return committed[-1] if committed else None
+
+
+def clean_seed_result(r):
+    out = {"seed": r["seed"], "result": r["result"]}
+    if r["result"] == "OK":
+        out["loss"] = r["loss"]
+        out["n_steps"] = r.get("n_steps")
+    elif r["result"] == "DIVERGED":
+        out["step"] = r.get("step")
+    elif r["result"] == "EXCEPTION":
+        out["traceback"] = r.get("traceback", "")[-4000:]
+    return out
+
+
+def append_entry(entry):
+    if not LOG_PATH.exists():
+        LOG_PATH.write_text(LOG_HEADER)
+    header = f"## {entry['timestamp']} — {entry['status']} ({entry['reason']})\n\n"
+    body = "```json\n" + json.dumps(entry, indent=2) + "\n```\n\n"
+    with open(LOG_PATH, "a") as f:
+        f.write(header + body)
+
+
+def save_snapshot(timestamp):
+    HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    dest = HISTORY_DIR / f"candidate_{timestamp}.py"
+    shutil.copy2(CANDIDATE_PATH, dest)
+    return str(dest.relative_to(REPO_ROOT))
+
+
+def revert_to_snapshot(relative_snapshot_path):
+    src = REPO_ROOT / relative_snapshot_path
+    shutil.copy2(src, CANDIDATE_PATH)
+
+
+# --------------------------------------------------------------------------
+# Main: run both seeds, decide keep/discard, log, exit.
+# --------------------------------------------------------------------------
+
+def main_experiment(lr, batch_size, device, budget_seconds=BUDGET_SECONDS):
+    timeout_seconds = 2 * budget_seconds
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+    seed_results = [
+        run_seed_subprocess(seed, budget_seconds, timeout_seconds, lr, batch_size, device)
+        for seed in SEEDS
+    ]
+    for r in seed_results:
+        print(f"seed {r['seed']}: {r['result']}"
+              + (f" loss={r['loss']:.4f}" if r["result"] == "OK" else ""))
+
+    statuses = [r["result"] for r in seed_results]
+    all_ok = all(s == "OK" for s in statuses)
+    cleaned = [clean_seed_result(r) for r in seed_results]
+
+    last = get_last_committed()
+
+    if last is None:
+        if all_ok:
+            mean_loss = sum(r["loss"] for r in seed_results) / len(seed_results)
+            snapshot = save_snapshot(timestamp)
+            entry = {
+                "timestamp": timestamp,
+                "status": "committed",
+                "decision": "KEEP",
+                "reason": "baseline",
+                "seed_results": cleaned,
+                "mean_loss": mean_loss,
+                "baseline_mean": None,
+                "snapshot": snapshot,
+            }
+            append_entry(entry)
+            print(f"BASELINE COMMITTED: mean_loss={mean_loss:.4f} snapshot={snapshot}")
+            return 0
+        else:
+            reason = ",".join(sorted({s for s in statuses if s != "OK"}))
+            entry = {
+                "timestamp": timestamp,
+                "status": "discarded",
+                "decision": "DISCARD",
+                "reason": reason,
+                "seed_results": cleaned,
+                "mean_loss": None,
+                "baseline_mean": None,
+                "snapshot": None,
+                "note": "baseline establishment failed; fix candidate_optimizer.py and rerun",
+            }
+            append_entry(entry)
+            print(f"BASELINE ESTABLISHMENT FAILED: {reason}")
+            return 1
+
+    baseline_mean = last["mean_loss"]
+
+    if all_ok:
+        mean_loss = sum(r["loss"] for r in seed_results) / len(seed_results)
+        if mean_loss < baseline_mean:
+            snapshot = save_snapshot(timestamp)
+            entry = {
+                "timestamp": timestamp,
+                "status": "committed",
+                "decision": "KEEP",
+                "reason": "improved",
+                "seed_results": cleaned,
+                "mean_loss": mean_loss,
+                "baseline_mean": baseline_mean,
+                "snapshot": snapshot,
+            }
+            append_entry(entry)
+            print(f"KEEP: mean_loss={mean_loss:.4f} < baseline {baseline_mean:.4f}; snapshot={snapshot}")
+            return 0
+        else:
+            revert_to_snapshot(last["snapshot"])
+            entry = {
+                "timestamp": timestamp,
+                "status": "discarded",
+                "decision": "DISCARD",
+                "reason": "worse_loss",
+                "seed_results": cleaned,
+                "mean_loss": mean_loss,
+                "baseline_mean": baseline_mean,
+                "snapshot": None,
+            }
+            append_entry(entry)
+            print(f"DISCARD (worse_loss): mean_loss={mean_loss:.4f} >= baseline {baseline_mean:.4f}; reverted")
+            return 0
+    else:
+        reason = ",".join(sorted({s for s in statuses if s != "OK"}))
+        revert_to_snapshot(last["snapshot"])
+        entry = {
+            "timestamp": timestamp,
+            "status": "discarded",
+            "decision": "DISCARD",
+            "reason": reason,
+            "seed_results": cleaned,
+            "mean_loss": None,
+            "baseline_mean": baseline_mean,
+            "snapshot": None,
+        }
+        append_entry(entry)
+        print(f"DISCARD ({reason}); reverted")
+        return 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
+    ap.add_argument("--seed", type=int, default=None, help=argparse.SUPPRESS)
+    ap.add_argument("--result-file", type=str, default=None, help=argparse.SUPPRESS)
+    ap.add_argument("--lr", type=float, default=1e-2)
+    ap.add_argument("--batch-size", type=int, default=256)
+    ap.add_argument("--budget-seconds", type=float, default=BUDGET_SECONDS,
+                     help=argparse.SUPPRESS)
+    ap.add_argument("--device", type=str, default="auto")
+    args = ap.parse_args()
+
+    if args.worker:
+        assert args.seed is not None and args.result_file is not None
+        run_worker(args.seed, args.budget_seconds, args.lr, args.batch_size,
+                   args.device, args.result_file)
+        return 0
+
+    return main_experiment(args.lr, args.batch_size, args.device, args.budget_seconds)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,1683 @@
+{
+ "cost_model": {
+  "fwd_flops_per_sample": 48.0,
+  "grad_multiplier": 3.0,
+  "hvp_multiplier": 6.0,
+  "provenance": "analytic: 2 * 24 params/sample, 3x grad, 6x curvature"
+ },
+ "stage1_total_flops": 111697920.0,
+ "stage2_tuning_total_flops": 22118400.0,
+ "stage2_total_flops": 36864000.0,
+ "grand_total_flops": 148561920.0,
+ "counterfactual_fixed_n_flops": 148561920.0,
+ "baseline": "sgd",
+ "survivors": [
+  "fixed-random(seed=7,s=0.5)"
+ ],
+ "candidates": [
+  {
+   "name": "fixed-random(seed=7,s=0.5)",
+   "gate_verdict": "PASS",
+   "gate_scope": "full-rank",
+   "gate_reason": "PASS at checkpoint(s) [0, 40]; trajectory sum R(P)/sum R(I) = 1.096 | rho-only would say PASS: PASS at checkpoint(s) [0, 40]",
+   "rho_ceiling": 1.5974190583980807,
+   "gain_ceiling": 1.1983190108596802,
+   "stage1_flops": 37232640.0,
+   "stage2_tuning_flops": 11059200.0,
+   "stage2_flops": 7372800.0,
+   "n_trials": 8,
+   "chosen_lr": 0.01,
+   "mean_score": 0.006978355770742158,
+   "status": "survivor",
+   "marginal_total": 55664640.0,
+   "fully_loaded_total": 148561920.0,
+   "search_multiplier": 20.15
+  },
+  {
+   "name": "dsn(delta=0.001,k_max=8)",
+   "gate_verdict": "FAIL",
+   "gate_scope": "rank-8",
+   "gate_reason": "FAIL at all 3 checkpoints | rho-only would say PASS: PASS at checkpoint(s) [90]",
+   "rho_ceiling": 3.646059287285911,
+   "gain_ceiling": 0.2895327804063873,
+   "stage1_flops": 37232640.0,
+   "stage2_tuning_flops": 0.0,
+   "stage2_flops": 0.0,
+   "n_trials": 0,
+   "chosen_lr": null,
+   "mean_score": NaN,
+   "status": "gate-rejected",
+   "marginal_total": 37232640.0,
+   "fully_loaded_total": null,
+   "search_multiplier": null
+  },
+  {
+   "name": "sgd",
+   "gate_verdict": "FAIL",
+   "gate_scope": "full-rank",
+   "gate_reason": "FAIL at all 3 checkpoints | rho-only would say FAIL: FAIL at all 3 checkpoints",
+   "rho_ceiling": 1.0,
+   "gain_ceiling": 1.0000000000000004,
+   "stage1_flops": 37232640.0,
+   "stage2_tuning_flops": 11059200.0,
+   "stage2_flops": 7372800.0,
+   "n_trials": 8,
+   "chosen_lr": 0.01,
+   "mean_score": 0.006427285902876236,
+   "status": "baseline",
+   "marginal_total": 55664640.0,
+   "fully_loaded_total": null,
+   "search_multiplier": null
+  }
+ ],
+ "selection": {
+  "baseline": "sgd",
+  "rounds": 8,
+  "winner": "fixed-random(seed=7,s=0.5)",
+  "survivors": [
+   "sgd",
+   "fixed-random(seed=7,s=0.5)"
+  ],
+  "stopped_because": "seed budget exhausted with several arms alive",
+  "total_pulls": 16,
+  "arms": {
+   "sgd": {
+    "name": "sgd",
+    "is_baseline": true,
+    "n_seeds": 8,
+    "mean": 0.006427285902876236,
+    "scores": [
+     0.006242811029456904,
+     0.006705898583027243,
+     0.006800004573092982,
+     0.006050900849259337,
+     0.005301666306402657,
+     0.00578824275097883,
+     0.007817791290200986,
+     0.006710971840590954
+    ],
+    "flops": 7372800.0,
+    "n_diverged": 0,
+    "eliminated_round": null,
+    "elimination_kind": "",
+    "elimination_evidence": ""
+   },
+   "fixed-random(seed=7,s=0.5)": {
+    "name": "fixed-random(seed=7,s=0.5)",
+    "is_baseline": false,
+    "n_seeds": 8,
+    "mean": 0.006978355770742158,
+    "scores": [
+     0.006547236354257819,
+     0.006635903708216939,
+     0.00915114571895493,
+     0.006840268524929594,
+     0.0054743297340286365,
+     0.005944443652667804,
+     0.007296286653744665,
+     0.007937231819136876
+    ],
+    "flops": 7372800.0,
+    "n_diverged": 0,
+    "eliminated_round": null,
+    "elimination_kind": "",
+    "elimination_evidence": ""
+   }
+  },
+  "eliminations": [],
+  "risk": [
+   {
+    "round": 1,
+    "n_comparisons": 1,
+    "fwer_alpha_spent": 0.037995443865876666,
+    "fwer_alpha_total": 0.05,
+    "naive_fwer_if_unadjusted": 0.09999999999999998,
+    "fdr_q": 0.1,
+    "by_critical": 0.0,
+    "bh_critical": 0.0,
+    "by_discoveries": [],
+    "bh_discoveries": [],
+    "naive_discoveries": [],
+    "expected_false_discoveries_bound": 0.0,
+    "pvalues": {
+     "fixed-random(seed=7,s=0.5)": 1.0
+    }
+   },
+   {
+    "round": 2,
+    "n_comparisons": 1,
+    "fwer_alpha_spent": 0.037995443865876666,
+    "fwer_alpha_total": 0.05,
+    "naive_fwer_if_unadjusted": 0.09999999999999998,
+    "fdr_q": 0.1,
+    "by_critical": 0.0,
+    "bh_critical": 0.0,
+    "by_discoveries": [],
+    "bh_discoveries": [],
+    "naive_discoveries": [],
+    "expected_false_discoveries_bound": 0.0,
+    "pvalues": {
+     "fixed-random(seed=7,s=0.5)": 1.0
+    }
+   },
+   {
+    "round": 3,
+    "n_comparisons": 1,
+    "fwer_alpha_spent": 0.037995443865876666,
+    "fwer_alpha_total": 0.05,
+    "naive_fwer_if_unadjusted": 0.09999999999999998,
+    "fdr_q": 0.1,
+    "by_critical": 0.0,
+    "bh_critical": 0.0,
+    "by_discoveries": [],
+    "bh_discoveries": [],
+    "naive_discoveries": [],
+    "expected_false_discoveries_bound": 0.0,
+    "pvalues": {
+     "fixed-random(seed=7,s=0.5)": 1.0
+    }
+   },
+   {
+    "round": 4,
+    "n_comparisons": 1,
+    "fwer_alpha_spent": 0.037995443865876666,
+    "fwer_alpha_total": 0.05,
+    "naive_fwer_if_unadjusted": 0.09999999999999998,
+    "fdr_q": 0.1,
+    "by_critical": 0.0,
+    "bh_critical": 0.0,
+    "by_discoveries": [],
+    "bh_discoveries": [],
+    "naive_discoveries": [],
+    "expected_false_discoveries_bound": 0.0,
+    "pvalues": {
+     "fixed-random(seed=7,s=0.5)": 1.0
+    }
+   },
+   {
+    "round": 5,
+    "n_comparisons": 1,
+    "fwer_alpha_spent": 0.037995443865876666,
+    "fwer_alpha_total": 0.05,
+    "naive_fwer_if_unadjusted": 0.09999999999999998,
+    "fdr_q": 0.1,
+    "by_critical": 0.0,
+    "bh_critical": 0.0,
+    "by_discoveries": [],
+    "bh_discoveries": [],
+    "naive_discoveries": [],
+    "expected_false_discoveries_bound": 0.0,
+    "pvalues": {
+     "fixed-random(seed=7,s=0.5)": 1.0
+    }
+   },
+   {
+    "round": 6,
+    "n_comparisons": 1,
+    "fwer_alpha_spent": 0.037995443865876666,
+    "fwer_alpha_total": 0.05,
+    "naive_fwer_if_unadjusted": 0.09999999999999998,
+    "fdr_q": 0.1,
+    "by_critical": 0.0,
+    "bh_critical": 0.0,
+    "by_discoveries": [],
+    "bh_discoveries": [],
+    "naive_discoveries": [],
+    "expected_false_discoveries_bound": 0.0,
+    "pvalues": {
+     "fixed-random(seed=7,s=0.5)": 1.0
+    }
+   },
+   {
+    "round": 7,
+    "n_comparisons": 1,
+    "fwer_alpha_spent": 0.037995443865876666,
+    "fwer_alpha_total": 0.05,
+    "naive_fwer_if_unadjusted": 0.09999999999999998,
+    "fdr_q": 0.1,
+    "by_critical": 0.0,
+    "bh_critical": 0.0,
+    "by_discoveries": [],
+    "bh_discoveries": [],
+    "naive_discoveries": [],
+    "expected_false_discoveries_bound": 0.0,
+    "pvalues": {
+     "fixed-random(seed=7,s=0.5)": 1.0
+    }
+   },
+   {
+    "round": 8,
+    "n_comparisons": 1,
+    "fwer_alpha_spent": 0.037995443865876666,
+    "fwer_alpha_total": 0.05,
+    "naive_fwer_if_unadjusted": 0.09999999999999998,
+    "fdr_q": 0.1,
+    "by_critical": 0.0,
+    "bh_critical": 0.0,
+    "by_discoveries": [],
+    "bh_discoveries": [],
+    "naive_discoveries": [],
+    "expected_false_discoveries_bound": 0.0,
+    "pvalues": {
+     "fixed-random(seed=7,s=0.5)": 1.0
+    }
+   }
+  ],
+  "alpha_ledger": {
+   "alpha_total": 0.05,
+   "schedule": "zeta2",
+   "n_candidates": 2,
+   "spent": 0.037995443865876666,
+   "remaining": 0.012004556134123337,
+   "per_candidate": {
+    "sgd": 0.030396355092701333,
+    "fixed-random(seed=7,s=0.5)": 0.007599088773175333
+   }
+  },
+  "assumptions": [
+   "Scores are sub-Gaussian across seeds with the plug-in sigma_hat inflated by 1.25x; the anytime bounds are exact for a known sigma and approximate for an estimated one.",
+   "All arms share the seed set, so candidate-vs-baseline differences are paired over the seeds both arms actually ran.",
+   "Family-wise error is budgeted over the pool in order of entry (zeta2); a candidate proposed later is held to a stricter bar than the same candidate proposed earlier.",
+   "Benjamini-Yekutieli is used for discoveries because arms share seeds, share data order and are stopped adaptively, so no positive-dependence assumption is available.",
+   "Divergent trials are score-capped, which makes an unstable arm's score distribution bimodal and violates the sub-Gaussian assumption. Such arms are disqualified on stability instead, spending no alpha; the mean comparisons are only applied to arms that stayed in their stable regime."
+  ]
+ },
+ "gate": {
+  "sgd": {
+   "candidate": "identity",
+   "spec": "P = I (SGD)",
+   "rank": null,
+   "scope": "full-rank",
+   "verdict": "FAIL",
+   "rho_only_verdict": "FAIL",
+   "reason": "FAIL at all 3 checkpoints | rho-only would say FAIL: FAIL at all 3 checkpoints",
+   "rho_ceiling": 1.0,
+   "gain_ceiling": 1.0000000000000004,
+   "trajectory_gain": 0.9999999999999997,
+   "exclusive_cost": {
+    "grads": {},
+    "hvps": {
+     "512": 27
+    },
+    "forwards": {}
+   },
+   "shared_cost_share": {
+    "grads": {
+     "512": 1.0,
+     "64": 16.0
+    },
+    "hvps": {
+     "512": 224.0
+    },
+    "forwards": {}
+   },
+   "checkpoints": [
+    {
+     "candidate": "identity",
+     "spec": "P = I (SGD)",
+     "step": 0,
+     "label": "quadratic",
+     "neg_frac": 0.0,
+     "rho_depth_spread": 0.0,
+     "gain_depth_spread": 1.221245327087672e-15,
+     "rho_depth_convergence": 0.0,
+     "gain_depth_convergence": 5.551115123125786e-16,
+     "n_cross_fit": 8,
+     "noise_scale": 4.0,
+     "verdict": "FAIL",
+     "rho_verdict": "FAIL",
+     "gain_verdict": "FAIL",
+     "rho_only_verdict": "FAIL",
+     "reason": "rho ceiling 1 (CI hi 1) < 1.05; gain ceiling 1 (CI hi 1) < 1.05",
+     "rho_ceiling": {
+      "point": 1.0,
+      "lo": 1.0,
+      "hi": 1.0,
+      "se": 0.0,
+      "bar": 1.05,
+      "margin": -Infinity
+     },
+     "rho_floor": {
+      "point": 1.0,
+      "lo": 1.0,
+      "hi": 1.0,
+      "se": 0.0,
+      "bar": 1.05,
+      "margin": -Infinity
+     },
+     "gain_ceiling": {
+      "point": 1.0000000000000002,
+      "lo": 1.0,
+      "hi": 1.0000000000000004,
+      "se": 2.502941428217673e-16,
+      "bar": 1.05,
+      "margin": -199764962281216.75
+     },
+     "gain_floor": {
+      "point": 0.999999999999999,
+      "lo": 0.9999999999999987,
+      "hi": 0.9999999999999993,
+      "se": 2.223914522808821e-16,
+      "bar": 1.05,
+      "margin": -224828784951908.44
+     },
+     "cells": [
+      {
+       "depth": 4,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 1.0,
+        "lo": 0.9999999999999998,
+        "hi": 1.0000000000000002,
+        "se": 1.1294943897019077e-16,
+        "bar": 1.05,
+        "margin": -442675948246151.75
+       },
+       "unbounded_model": false,
+       "R_P": 292.07638143184226,
+       "R_I": 292.07638143184226,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 8,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 1.0000000000000002,
+        "lo": 1.0,
+        "hi": 1.0000000000000004,
+        "se": 2.502941428217673e-16,
+        "bar": 1.05,
+        "margin": -199764962281216.75
+       },
+       "unbounded_model": false,
+       "R_P": 292.07638143184226,
+       "R_I": 292.0763814318422,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 16,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 0.999999999999999,
+        "lo": 0.9999999999999987,
+        "hi": 0.9999999999999993,
+        "se": 2.223914522808821e-16,
+        "bar": 1.05,
+        "margin": -224828784951908.44
+       },
+       "unbounded_model": false,
+       "R_P": 292.07638143184226,
+       "R_I": 292.07638143184255,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 24,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 0.9999999999999996,
+        "lo": 0.9999999999999992,
+        "hi": 0.9999999999999998,
+        "se": 3.1424422430047965e-16,
+        "bar": 1.05,
+        "margin": -159111914025794.78
+       },
+       "unbounded_model": false,
+       "R_P": 292.07638143184226,
+       "R_I": 292.0763814318424,
+       "spectral_resolution": NaN
+      }
+     ]
+    },
+    {
+     "candidate": "identity",
+     "spec": "P = I (SGD)",
+     "step": 40,
+     "label": "quadratic",
+     "neg_frac": 0.0,
+     "rho_depth_spread": 0.0,
+     "gain_depth_spread": 2.220446049250313e-16,
+     "rho_depth_convergence": 0.0,
+     "gain_depth_convergence": 2.220446049250313e-16,
+     "n_cross_fit": 8,
+     "noise_scale": 4.0,
+     "verdict": "FAIL",
+     "rho_verdict": "FAIL",
+     "gain_verdict": "FAIL",
+     "rho_only_verdict": "FAIL",
+     "reason": "rho ceiling 1 (CI hi 1) < 1.05; gain ceiling 1 (CI hi 1) < 1.05",
+     "rho_ceiling": {
+      "point": 1.0,
+      "lo": 1.0,
+      "hi": 1.0,
+      "se": 0.0,
+      "bar": 1.05,
+      "margin": -Infinity
+     },
+     "rho_floor": {
+      "point": 1.0,
+      "lo": 1.0,
+      "hi": 1.0,
+      "se": 0.0,
+      "bar": 1.05,
+      "margin": -Infinity
+     },
+     "gain_ceiling": {
+      "point": 1.0,
+      "lo": 0.9999999999999997,
+      "hi": 1.0000000000000002,
+      "se": 1.6841576742317947e-16,
+      "bar": 1.05,
+      "margin": -296884316504432.1
+     },
+     "gain_floor": {
+      "point": 0.9999999999999998,
+      "lo": 0.9999999999999993,
+      "hi": 1.0000000000000002,
+      "se": 3.2810550359255706e-16,
+      "bar": 1.05,
+      "margin": -152390007032891.78
+     },
+     "cells": [
+      {
+       "depth": 4,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 1.0,
+        "lo": 0.9999999999999997,
+        "hi": 1.0000000000000002,
+        "se": 1.6841576742317947e-16,
+        "bar": 1.05,
+        "margin": -296884316504432.1
+       },
+       "unbounded_model": false,
+       "R_P": 0.46511174306275,
+       "R_I": 0.46511174306275,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 8,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 1.0,
+        "lo": 0.9999999999999998,
+        "hi": 1.0000000000000004,
+        "se": 1.5921265005762623e-16,
+        "bar": 1.05,
+        "margin": -314045397660944.6
+       },
+       "unbounded_model": false,
+       "R_P": 0.46511174306275,
+       "R_I": 0.46511174306275,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 16,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 0.9999999999999998,
+        "lo": 0.9999999999999993,
+        "hi": 1.0000000000000002,
+        "se": 3.2810550359255706e-16,
+        "bar": 1.05,
+        "margin": -152390007032891.78
+       },
+       "unbounded_model": false,
+       "R_P": 0.46511174306275,
+       "R_I": 0.4651117430627501,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 24,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 1.0,
+        "lo": 0.9999999999999994,
+        "hi": 1.0000000000000009,
+        "se": 3.6421205920667166e-16,
+        "bar": 1.05,
+        "margin": -137282659198353.48
+       },
+       "unbounded_model": false,
+       "R_P": 0.46511174306275,
+       "R_I": 0.46511174306275,
+       "spectral_resolution": NaN
+      }
+     ]
+    },
+    {
+     "candidate": "identity",
+     "spec": "P = I (SGD)",
+     "step": 90,
+     "label": "quadratic",
+     "neg_frac": 0.0,
+     "rho_depth_spread": 0.0,
+     "gain_depth_spread": 2.220446049250312e-16,
+     "rho_depth_convergence": 0.0,
+     "gain_depth_convergence": 0.0,
+     "n_cross_fit": 8,
+     "noise_scale": 4.0,
+     "verdict": "FAIL",
+     "rho_verdict": "FAIL",
+     "gain_verdict": "FAIL",
+     "rho_only_verdict": "FAIL",
+     "reason": "rho ceiling 1 (CI hi 1) < 1.05; gain ceiling 1 (CI hi 1) < 1.05",
+     "rho_ceiling": {
+      "point": 1.0,
+      "lo": 1.0,
+      "hi": 1.0,
+      "se": 0.0,
+      "bar": 1.05,
+      "margin": -Infinity
+     },
+     "rho_floor": {
+      "point": 1.0,
+      "lo": 1.0,
+      "hi": 1.0,
+      "se": 0.0,
+      "bar": 1.05,
+      "margin": -Infinity
+     },
+     "gain_ceiling": {
+      "point": 1.0000000000000004,
+      "lo": 1.0,
+      "hi": 1.0000000000000007,
+      "se": 2.496528046519948e-16,
+      "bar": 1.05,
+      "margin": -200278142557610.9
+     },
+     "gain_floor": {
+      "point": 1.0000000000000002,
+      "lo": 0.9999999999999997,
+      "hi": 1.0000000000000004,
+      "se": 2.181363705500633e-16,
+      "bar": 1.05,
+      "margin": -229214412405952.22
+     },
+     "cells": [
+      {
+       "depth": 4,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 1.0000000000000002,
+        "lo": 0.9999999999999997,
+        "hi": 1.0000000000000004,
+        "se": 2.181363705500633e-16,
+        "bar": 1.05,
+        "margin": -229214412405952.22
+       },
+       "unbounded_model": false,
+       "R_P": 0.04036345923473917,
+       "R_I": 0.04036345923473916,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 8,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 1.0000000000000002,
+        "lo": 0.9999999999999998,
+        "hi": 1.0000000000000004,
+        "se": 1.9948870601453702e-16,
+        "bar": 1.05,
+        "margin": -250640755554132.72
+       },
+       "unbounded_model": false,
+       "R_P": 0.04036345923473917,
+       "R_I": 0.04036345923473916,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 16,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 1.0000000000000004,
+        "lo": 1.0,
+        "hi": 1.0000000000000007,
+        "se": 2.496528046519948e-16,
+        "bar": 1.05,
+        "margin": -200278142557610.9
+       },
+       "unbounded_model": false,
+       "R_P": 0.04036345923473917,
+       "R_I": 0.04036345923473915,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 24,
+       "rho": {
+        "point": 1.0,
+        "lo": 1.0,
+        "hi": 1.0,
+        "se": 0.0,
+        "bar": 1.05,
+        "margin": -Infinity
+       },
+       "gain": {
+        "point": 1.0000000000000004,
+        "lo": 1.0,
+        "hi": 1.0000000000000009,
+        "se": 2.2929889626084353e-16,
+        "bar": 1.05,
+        "margin": -218055999463342.8
+       },
+       "unbounded_model": false,
+       "R_P": 0.04036345923473917,
+       "R_I": 0.04036345923473915,
+       "spectral_resolution": NaN
+      }
+     ]
+    }
+   ]
+  },
+  "fixed-random(seed=7,s=0.5)": {
+   "candidate": "fixed-random(seed=7)",
+   "spec": "P = diag(exp(U(-0.5,0.5))), seed=7, data-independent",
+   "rank": null,
+   "scope": "full-rank",
+   "verdict": "PASS",
+   "rho_only_verdict": "PASS",
+   "reason": "PASS at checkpoint(s) [0, 40]; trajectory sum R(P)/sum R(I) = 1.096 | rho-only would say PASS: PASS at checkpoint(s) [0, 40]",
+   "rho_ceiling": 1.5974190583980807,
+   "gain_ceiling": 1.1983190108596802,
+   "trajectory_gain": 1.096414554382627,
+   "exclusive_cost": {
+    "grads": {},
+    "hvps": {
+     "512": 27
+    },
+    "forwards": {}
+   },
+   "shared_cost_share": {
+    "grads": {
+     "512": 1.0,
+     "64": 16.0
+    },
+    "hvps": {
+     "512": 224.0
+    },
+    "forwards": {}
+   },
+   "checkpoints": [
+    {
+     "candidate": "fixed-random(seed=7)",
+     "spec": "P = diag(exp(U(-0.5,0.5))), seed=7, data-independent",
+     "step": 0,
+     "label": "quadratic",
+     "neg_frac": 0.0,
+     "rho_depth_spread": 0.0,
+     "gain_depth_spread": 1.2152814822636835e-15,
+     "rho_depth_convergence": 0.0,
+     "gain_depth_convergence": 6.076407411318422e-16,
+     "n_cross_fit": 8,
+     "noise_scale": 4.0,
+     "verdict": "PASS",
+     "rho_verdict": "PASS",
+     "gain_verdict": "PASS",
+     "rho_only_verdict": "PASS",
+     "reason": "rho floor 1.597 (CI lo 1.443) > 1.05; gain floor 1.096 (CI lo 1.057) > 1.05",
+     "rho_ceiling": {
+      "point": 1.5974190583980807,
+      "lo": 1.4427410996602368,
+      "hi": 1.7834463214549263,
+      "se": 0.08479722357009051,
+      "bar": 1.05,
+      "margin": 6.4556247875922805
+     },
+     "rho_floor": {
+      "point": 1.5974190583980807,
+      "lo": 1.4427410996602368,
+      "hi": 1.7834463214549263,
+      "se": 0.08479722357009051,
+      "bar": 1.05,
+      "margin": 6.4556247875922805
+     },
+     "gain_ceiling": {
+      "point": 1.096262593476366,
+      "lo": 1.0576289507306085,
+      "hi": 1.128765574185624,
+      "se": 0.018618426646957523,
+      "bar": 1.05,
+      "margin": 2.4847745920531756
+     },
+     "gain_floor": {
+      "point": 1.0962625934763646,
+      "lo": 1.0568579140451466,
+      "hi": 1.1299127463919543,
+      "se": 0.01909595745535713,
+      "bar": 1.05,
+      "margin": 2.422638068005652
+     },
+     "cells": [
+      {
+       "depth": 4,
+       "rho": {
+        "point": 1.5974190583980807,
+        "lo": 1.4427410996602368,
+        "hi": 1.7834463214549263,
+        "se": 0.08479722357009051,
+        "bar": 1.05,
+        "margin": 6.4556247875922805
+       },
+       "gain": {
+        "point": 1.0962625934763657,
+        "lo": 1.0569197548298896,
+        "hi": 1.1282788682390812,
+        "se": 0.018456572794528198,
+        "bar": 1.05,
+        "margin": 2.5065646797698573
+       },
+       "unbounded_model": false,
+       "R_P": 320.1924114016636,
+       "R_I": 292.07638143184226,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 8,
+       "rho": {
+        "point": 1.5974190583980807,
+        "lo": 1.4517813535626076,
+        "hi": 1.7845517078108508,
+        "se": 0.08438667489373033,
+        "bar": 1.05,
+        "margin": 6.48703197616751
+       },
+       "gain": {
+        "point": 1.096262593476366,
+        "lo": 1.0576289507306085,
+        "hi": 1.128765574185624,
+        "se": 0.018618426646957523,
+        "bar": 1.05,
+        "margin": 2.4847745920531756
+       },
+       "unbounded_model": false,
+       "R_P": 320.1924114016636,
+       "R_I": 292.0763814318422,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 16,
+       "rho": {
+        "point": 1.5974190583980807,
+        "lo": 1.4518631845348293,
+        "hi": 1.7821700072849742,
+        "se": 0.085012829486326,
+        "bar": 1.05,
+        "margin": 6.4392523070430325
+       },
+       "gain": {
+        "point": 1.0962625934763646,
+        "lo": 1.0568579140451466,
+        "hi": 1.1299127463919543,
+        "se": 0.01909595745535713,
+        "bar": 1.05,
+        "margin": 2.422638068005652
+       },
+       "unbounded_model": false,
+       "R_P": 320.1924114016636,
+       "R_I": 292.07638143184255,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 24,
+       "rho": {
+        "point": 1.5974190583980807,
+        "lo": 1.4559478228597833,
+        "hi": 1.7790854385419654,
+        "se": 0.08324046579436178,
+        "bar": 1.05,
+        "margin": 6.5763574623721
+       },
+       "gain": {
+        "point": 1.0962625934763652,
+        "lo": 1.0602544542027206,
+        "hi": 1.1298877601636548,
+        "se": 0.01815668844200086,
+        "bar": 1.05,
+        "margin": 2.547964273559296
+       },
+       "unbounded_model": false,
+       "R_P": 320.1924114016636,
+       "R_I": 292.0763814318424,
+       "spectral_resolution": NaN
+      }
+     ]
+    },
+    {
+     "candidate": "fixed-random(seed=7)",
+     "spec": "P = diag(exp(U(-0.5,0.5))), seed=7, data-independent",
+     "step": 40,
+     "label": "quadratic",
+     "neg_frac": 0.0,
+     "rho_depth_spread": 0.0,
+     "gain_depth_spread": 1.8529673894244185e-16,
+     "rho_depth_convergence": 0.0,
+     "gain_depth_convergence": 1.8529673894244185e-16,
+     "n_cross_fit": 8,
+     "noise_scale": 4.0,
+     "verdict": "PASS",
+     "rho_verdict": "PASS",
+     "gain_verdict": "PASS",
+     "rho_only_verdict": "PASS",
+     "reason": "rho floor 1.452 (CI lo 1.348) > 1.05; gain floor 1.198 (CI lo 1.113) > 1.05",
+     "rho_ceiling": {
+      "point": 1.4522365327461229,
+      "lo": 1.3484034242220733,
+      "hi": 1.5841164849250375,
+      "se": 0.060506628552691816,
+      "bar": 1.05,
+      "margin": 6.647809378369804
+     },
+     "rho_floor": {
+      "point": 1.4522365327461229,
+      "lo": 1.3484034242220733,
+      "hi": 1.5841164849250375,
+      "se": 0.060506628552691816,
+      "bar": 1.05,
+      "margin": 6.647809378369804
+     },
+     "gain_ceiling": {
+      "point": 1.1983190108596802,
+      "lo": 1.114238222838394,
+      "hi": 1.2842666107785332,
+      "se": 0.04392970460726013,
+      "bar": 1.05,
+      "margin": 3.3762806325624117
+     },
+     "gain_floor": {
+      "point": 1.19831901085968,
+      "lo": 1.1134790284599831,
+      "hi": 1.28546937953253,
+      "se": 0.04371547917187788,
+      "bar": 1.05,
+      "margin": 3.3928259204600772
+     },
+     "cells": [
+      {
+       "depth": 4,
+       "rho": {
+        "point": 1.4522365327461229,
+        "lo": 1.3484034242220733,
+        "hi": 1.5841164849250375,
+        "se": 0.060506628552691816,
+        "bar": 1.05,
+        "margin": 6.647809378369804
+       },
+       "gain": {
+        "point": 1.1983190108596802,
+        "lo": 1.114238222838394,
+        "hi": 1.2842666107785332,
+        "se": 0.04392970460726013,
+        "bar": 1.05,
+        "margin": 3.3762806325624117
+       },
+       "unbounded_model": false,
+       "R_P": 0.5573522438861763,
+       "R_I": 0.46511174306275,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 8,
+       "rho": {
+        "point": 1.4522365327461229,
+        "lo": 1.3386066114350874,
+        "hi": 1.574528537141878,
+        "se": 0.06218267448937837,
+        "bar": 1.05,
+        "margin": 6.468627090248911
+       },
+       "gain": {
+        "point": 1.1983190108596802,
+        "lo": 1.1091253461007218,
+        "hi": 1.2842571569954069,
+        "se": 0.04496065595304378,
+        "bar": 1.05,
+        "margin": 3.2988622544693795
+       },
+       "unbounded_model": false,
+       "R_P": 0.5573522438861763,
+       "R_I": 0.46511174306275,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 16,
+       "rho": {
+        "point": 1.4522365327461229,
+        "lo": 1.344603205143695,
+        "hi": 1.5805480834320067,
+        "se": 0.06087408025914729,
+        "bar": 1.05,
+        "margin": 6.607681480093992
+       },
+       "gain": {
+        "point": 1.19831901085968,
+        "lo": 1.1134790284599831,
+        "hi": 1.28546937953253,
+        "se": 0.04371547917187788,
+        "bar": 1.05,
+        "margin": 3.3928259204600772
+       },
+       "unbounded_model": false,
+       "R_P": 0.5573522438861763,
+       "R_I": 0.4651117430627501,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 24,
+       "rho": {
+        "point": 1.4522365327461229,
+        "lo": 1.34603061929574,
+        "hi": 1.5844646032059329,
+        "se": 0.06034849192587896,
+        "bar": 1.05,
+        "margin": 6.665229236219465
+       },
+       "gain": {
+        "point": 1.1983190108596802,
+        "lo": 1.1142382228383945,
+        "hi": 1.285862005439208,
+        "se": 0.04392046896225547,
+        "bar": 1.05,
+        "margin": 3.3769906006045396
+       },
+       "unbounded_model": false,
+       "R_P": 0.5573522438861763,
+       "R_I": 0.46511174306275,
+       "spectral_resolution": NaN
+      }
+     ]
+    },
+    {
+     "candidate": "fixed-random(seed=7)",
+     "spec": "P = diag(exp(U(-0.5,0.5))), seed=7, data-independent",
+     "step": 90,
+     "label": "quadratic",
+     "neg_frac": 0.0,
+     "rho_depth_spread": 0.0,
+     "gain_depth_spread": 2.1731292368682323e-16,
+     "rho_depth_convergence": 0.0,
+     "gain_depth_convergence": 0.0,
+     "n_cross_fit": 8,
+     "noise_scale": 4.0,
+     "verdict": "INDETERMINATE",
+     "rho_verdict": "INDETERMINATE",
+     "gain_verdict": "INDETERMINATE",
+     "rho_only_verdict": "INDETERMINATE",
+     "reason": "rho interval straddles 1.05 (floor lo 1.027, ceiling hi 1.305); gain interval straddles 1.05 (floor lo 0.9183, ceiling hi 1.131)",
+     "rho_ceiling": {
+      "point": 1.163402779711986,
+      "lo": 1.0267200474792082,
+      "hi": 1.3052073375317361,
+      "se": 0.06964519699840609,
+      "bar": 1.05,
+      "margin": 1.6282928988567758
+     },
+     "rho_floor": {
+      "point": 1.163402779711986,
+      "lo": 1.0267200474792082,
+      "hi": 1.3052073375317361,
+      "se": 0.06964519699840609,
+      "bar": 1.05,
+      "margin": 1.6282928988567758
+     },
+     "gain_ceiling": {
+      "point": 1.0217735841841926,
+      "lo": 0.9211891997355727,
+      "hi": 1.130762329400872,
+      "se": 0.05443940230678945,
+      "bar": 1.05,
+      "margin": -0.5184923900659201
+     },
+     "gain_floor": {
+      "point": 1.0217735841841924,
+      "lo": 0.9183157553846819,
+      "hi": 1.1313257130725176,
+      "se": 0.05380263505933022,
+      "bar": 1.05,
+      "margin": -0.5246288733754638
+     },
+     "cells": [
+      {
+       "depth": 4,
+       "rho": {
+        "point": 1.163402779711986,
+        "lo": 1.0267200474792082,
+        "hi": 1.3052073375317361,
+        "se": 0.06964519699840609,
+        "bar": 1.05,
+        "margin": 1.6282928988567758
+       },
+       "gain": {
+        "point": 1.0217735841841924,
+        "lo": 0.9183157553846819,
+        "hi": 1.1313257130725176,
+        "se": 0.05380263505933022,
+        "bar": 1.05,
+        "margin": -0.5246288733754638
+       },
+       "unbounded_model": false,
+       "R_P": 0.04124231641235197,
+       "R_I": 0.04036345923473916,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 8,
+       "rho": {
+        "point": 1.163402779711986,
+        "lo": 1.0338744632735573,
+        "hi": 1.3014076552112044,
+        "se": 0.06932205662194112,
+        "bar": 1.05,
+        "margin": 1.6358830830776703
+       },
+       "gain": {
+        "point": 1.0217735841841924,
+        "lo": 0.9234600820381517,
+        "hi": 1.1302660259069546,
+        "se": 0.052906364976543885,
+        "bar": 1.05,
+        "margin": -0.5335164460518479
+       },
+       "unbounded_model": false,
+       "R_P": 0.04124231641235197,
+       "R_I": 0.04036345923473916,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 16,
+       "rho": {
+        "point": 1.163402779711986,
+        "lo": 1.0331777651527327,
+        "hi": 1.305836496334152,
+        "se": 0.07056166306885664,
+        "bar": 1.05,
+        "margin": 1.6071443724522665
+       },
+       "gain": {
+        "point": 1.0217735841841926,
+        "lo": 0.9211891997355727,
+        "hi": 1.130762329400872,
+        "se": 0.05443940230678945,
+        "bar": 1.05,
+        "margin": -0.5184923900659201
+       },
+       "unbounded_model": false,
+       "R_P": 0.04124231641235197,
+       "R_I": 0.04036345923473915,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 24,
+       "rho": {
+        "point": 1.163402779711986,
+        "lo": 1.029386447721041,
+        "hi": 1.294700565722285,
+        "se": 0.06841185878569449,
+        "bar": 1.05,
+        "margin": 1.6576479827456372
+       },
+       "gain": {
+        "point": 1.0217735841841926,
+        "lo": 0.9241368431136537,
+        "hi": 1.1238305217958489,
+        "se": 0.05227011740155212,
+        "bar": 1.05,
+        "margin": -0.5400105685427303
+       },
+       "unbounded_model": false,
+       "R_P": 0.04124231641235197,
+       "R_I": 0.04036345923473915,
+       "spectral_resolution": NaN
+      }
+     ]
+    }
+   ]
+  },
+  "dsn(delta=0.001,k_max=8)": {
+   "candidate": "dsn-rank8(delta=0.001,c=1)",
+   "spec": "P = W (|W'HW| + 0.001)^-1 W' + 1 (I - WW'), W = rank-8 Krylov basis seeded at g -- DSN's shipped operator",
+   "rank": 8,
+   "scope": "rank-8",
+   "verdict": "FAIL",
+   "rho_only_verdict": "PASS",
+   "reason": "FAIL at all 3 checkpoints | rho-only would say PASS: PASS at checkpoint(s) [90]",
+   "rho_ceiling": 3.646059287285911,
+   "gain_ceiling": 0.2895327804063873,
+   "trajectory_gain": 0.01788248872526617,
+   "exclusive_cost": {
+    "grads": {},
+    "hvps": {
+     "512": 27
+    },
+    "forwards": {}
+   },
+   "shared_cost_share": {
+    "grads": {
+     "512": 1.0,
+     "64": 16.0
+    },
+    "hvps": {
+     "512": 224.0
+    },
+    "forwards": {}
+   },
+   "checkpoints": [
+    {
+     "candidate": "dsn-rank8(delta=0.001,c=1)",
+     "spec": "P = W (|W'HW| + 0.001)^-1 W' + 1 (I - WW'), W = rank-8 Krylov basis seeded at g -- DSN's shipped operator",
+     "step": 0,
+     "label": "quadratic",
+     "neg_frac": 0.0,
+     "rho_depth_spread": 0.0,
+     "gain_depth_spread": 1.1702417557612341e-15,
+     "rho_depth_convergence": 0.0,
+     "gain_depth_convergence": 5.851208778806174e-16,
+     "n_cross_fit": 8,
+     "noise_scale": 4.0,
+     "verdict": "FAIL",
+     "rho_verdict": "FAIL",
+     "gain_verdict": "FAIL",
+     "rho_only_verdict": "FAIL",
+     "reason": "rho ceiling 0.1181 (CI hi 0.1706) < 1.05; gain ceiling 0.01779 (CI hi 0.02854) < 1.05",
+     "rho_ceiling": {
+      "point": 0.11814351863168092,
+      "lo": 0.07442884957996647,
+      "hi": 0.170558530880807,
+      "se": 0.025273409567364184,
+      "bar": 1.05,
+      "margin": -36.87102362997492
+     },
+     "rho_floor": {
+      "point": 0.11814351863168092,
+      "lo": 0.07442884957996647,
+      "hi": 0.170558530880807,
+      "se": 0.025273409567364184,
+      "bar": 1.05,
+      "margin": -36.87102362997492
+     },
+     "gain_ceiling": {
+      "point": 0.01778836006255868,
+      "lo": 0.011946796293087836,
+      "hi": 0.028541867326090018,
+      "se": 0.0043205556021880115,
+      "bar": 1.05,
+      "margin": -238.90715337969726
+     },
+     "gain_floor": {
+      "point": 0.01778836006255866,
+      "lo": 0.011977150265519406,
+      "hi": 0.02921428386662601,
+      "se": 0.00447571442633818,
+      "bar": 1.05,
+      "margin": -230.62500008114878
+     },
+     "cells": [
+      {
+       "depth": 4,
+       "rho": {
+        "point": 0.11814351863168092,
+        "lo": 0.07442884957996647,
+        "hi": 0.170558530880807,
+        "se": 0.025273409567364184,
+        "bar": 1.05,
+        "margin": -36.87102362997492
+       },
+       "gain": {
+        "point": 0.017788360062558677,
+        "lo": 0.012161052333942757,
+        "hi": 0.02851479127851617,
+        "se": 0.004261634049709548,
+        "bar": 1.05,
+        "margin": -242.21029490033098
+       },
+       "unbounded_model": false,
+       "R_P": 5.195559838678838,
+       "R_I": 292.07638143184226,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 8,
+       "rho": {
+        "point": 0.11814351863168092,
+        "lo": 0.07524105357008995,
+        "hi": 0.1689501715088801,
+        "se": 0.02501352528562553,
+        "bar": 1.05,
+        "margin": -37.254104358645804
+       },
+       "gain": {
+        "point": 0.01778836006255868,
+        "lo": 0.011946796293087836,
+        "hi": 0.028541867326090018,
+        "se": 0.0043205556021880115,
+        "bar": 1.05,
+        "margin": -238.90715337969726
+       },
+       "unbounded_model": false,
+       "R_P": 5.195559838678838,
+       "R_I": 292.0763814318422,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 16,
+       "rho": {
+        "point": 0.11814351863168092,
+        "lo": 0.07401282197081227,
+        "hi": 0.1681532049037365,
+        "se": 0.025253107748118567,
+        "bar": 1.05,
+        "margin": -36.900665480974126
+       },
+       "gain": {
+        "point": 0.01778836006255866,
+        "lo": 0.011977150265519406,
+        "hi": 0.02921428386662601,
+        "se": 0.00447571442633818,
+        "bar": 1.05,
+        "margin": -230.62500008114878
+       },
+       "unbounded_model": false,
+       "R_P": 5.195559838678838,
+       "R_I": 292.07638143184255,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 24,
+       "rho": {
+        "point": 0.11814351863168092,
+        "lo": 0.0749072731263899,
+        "hi": 0.17135197798545787,
+        "se": 0.025116405191507166,
+        "bar": 1.05,
+        "margin": -37.10150693393878
+       },
+       "gain": {
+        "point": 0.01778836006255867,
+        "lo": 0.012022844301534257,
+        "hi": 0.028916593979913276,
+        "se": 0.004327500837977565,
+        "bar": 1.05,
+        "margin": -238.52372964989195
+       },
+       "unbounded_model": false,
+       "R_P": 5.195559838678838,
+       "R_I": 292.0763814318424,
+       "spectral_resolution": NaN
+      }
+     ]
+    },
+    {
+     "candidate": "dsn-rank8(delta=0.001,c=1)",
+     "spec": "P = W (|W'HW| + 0.001)^-1 W' + 1 (I - WW'), W = rank-8 Krylov basis seeded at g -- DSN's shipped operator",
+     "step": 40,
+     "label": "quadratic",
+     "neg_frac": 0.0,
+     "rho_depth_spread": 0.0,
+     "gain_depth_spread": 2.5979578005492165e-16,
+     "rho_depth_convergence": 0.0,
+     "gain_depth_convergence": 2.5979578005492165e-16,
+     "n_cross_fit": 8,
+     "noise_scale": 4.0,
+     "verdict": "FAIL",
+     "rho_verdict": "INDETERMINATE",
+     "gain_verdict": "FAIL",
+     "rho_only_verdict": "INDETERMINATE",
+     "reason": "rho interval straddles 1.05 (floor lo 0.4807, ceiling hi 2.081); gain ceiling 0.05342 (CI hi 0.116) < 1.05",
+     "rho_ceiling": {
+      "point": 0.9757383271154686,
+      "lo": 0.48066134783322323,
+      "hi": 2.0811610782209913,
+      "se": 0.4098990156666786,
+      "bar": 1.05,
+      "margin": -0.18117065434701973
+     },
+     "rho_floor": {
+      "point": 0.9757383271154686,
+      "lo": 0.48066134783322323,
+      "hi": 2.0811610782209913,
+      "se": 0.4098990156666786,
+      "bar": 1.05,
+      "margin": -0.18117065434701973
+     },
+     "gain_ceiling": {
+      "point": 0.05341806477719018,
+      "lo": 0.032307250171476135,
+      "hi": 0.11604125811650473,
+      "se": 0.02203300357828978,
+      "bar": 1.05,
+      "margin": -45.23132453011499
+     },
+     "gain_floor": {
+      "point": 0.05341806477719017,
+      "lo": 0.031809391805466616,
+      "hi": 0.11965540890040927,
+      "se": 0.02229394365029969,
+      "bar": 1.05,
+      "margin": -44.70191325747848
+     },
+     "cells": [
+      {
+       "depth": 4,
+       "rho": {
+        "point": 0.9757383271154686,
+        "lo": 0.48066134783322323,
+        "hi": 2.0811610782209913,
+        "se": 0.4098990156666786,
+        "bar": 1.05,
+        "margin": -0.18117065434701973
+       },
+       "gain": {
+        "point": 0.05341806477719018,
+        "lo": 0.032307250171476135,
+        "hi": 0.11604125811650473,
+        "se": 0.02203300357828978,
+        "bar": 1.05,
+        "margin": -45.23132453011499
+       },
+       "unbounded_model": false,
+       "R_P": 0.024845369219557815,
+       "R_I": 0.46511174306275,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 8,
+       "rho": {
+        "point": 0.9757383271154686,
+        "lo": 0.4764110109082794,
+        "hi": 2.0283361344279043,
+        "se": 0.4002923557240689,
+        "bar": 1.05,
+        "margin": -0.18551858865804022
+       },
+       "gain": {
+        "point": 0.05341806477719018,
+        "lo": 0.03144893626516446,
+        "hi": 0.1134639594888666,
+        "se": 0.021530927857220158,
+        "bar": 1.05,
+        "margin": -46.28606541397227
+       },
+       "unbounded_model": false,
+       "R_P": 0.024845369219557815,
+       "R_I": 0.46511174306275,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 16,
+       "rho": {
+        "point": 0.9757383271154686,
+        "lo": 0.48216004560120035,
+        "hi": 2.086816885443497,
+        "se": 0.4099295252179994,
+        "bar": 1.05,
+        "margin": -0.18115717047958255
+       },
+       "gain": {
+        "point": 0.05341806477719017,
+        "lo": 0.031809391805466616,
+        "hi": 0.11965540890040927,
+        "se": 0.02229394365029969,
+        "bar": 1.05,
+        "margin": -44.70191325747848
+       },
+       "unbounded_model": false,
+       "R_P": 0.024845369219557815,
+       "R_I": 0.4651117430627501,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 24,
+       "rho": {
+        "point": 0.9757383271154686,
+        "lo": 0.4791131235074852,
+        "hi": 1.9866002684988442,
+        "se": 0.39278062697390004,
+        "bar": 1.05,
+        "margin": -0.18906653685204816
+       },
+       "gain": {
+        "point": 0.05341806477719018,
+        "lo": 0.031693807901377935,
+        "hi": 0.10791468749178142,
+        "se": 0.020723818734881584,
+        "bar": 1.05,
+        "margin": -48.0887209047722
+       },
+       "unbounded_model": false,
+       "R_P": 0.024845369219557815,
+       "R_I": 0.46511174306275,
+       "spectral_resolution": NaN
+      }
+     ]
+    },
+    {
+     "candidate": "dsn-rank8(delta=0.001,c=1)",
+     "spec": "P = W (|W'HW| + 0.001)^-1 W' + 1 (I - WW'), W = rank-8 Krylov basis seeded at g -- DSN's shipped operator",
+     "step": 90,
+     "label": "quadratic",
+     "neg_frac": 0.0,
+     "rho_depth_spread": 0.0,
+     "gain_depth_spread": 3.8345330814246695e-16,
+     "rho_depth_convergence": 0.0,
+     "gain_depth_convergence": 0.0,
+     "n_cross_fit": 8,
+     "noise_scale": 4.0,
+     "verdict": "FAIL",
+     "rho_verdict": "PASS",
+     "gain_verdict": "FAIL",
+     "rho_only_verdict": "PASS",
+     "reason": "rho floor 3.646 (CI lo 2.879) > 1.05; gain ceiling 0.2895 (CI hi 0.3682) < 1.05",
+     "rho_ceiling": {
+      "point": 3.646059287285911,
+      "lo": 2.8791413159487047,
+      "hi": 4.862593328154753,
+      "se": 0.501592097789512,
+      "bar": 1.05,
+      "margin": 5.175638329883181
+     },
+     "rho_floor": {
+      "point": 3.646059287285911,
+      "lo": 2.8791413159487047,
+      "hi": 4.862593328154753,
+      "se": 0.501592097789512,
+      "bar": 1.05,
+      "margin": 5.175638329883181
+     },
+     "gain_ceiling": {
+      "point": 0.2895327804063873,
+      "lo": 0.23804391706914102,
+      "hi": 0.36819860836108076,
+      "se": 0.03374630821879023,
+      "bar": 1.05,
+      "margin": -22.534827059102664
+     },
+     "gain_floor": {
+      "point": 0.2895327804063872,
+      "lo": 0.23585641244232824,
+      "hi": 0.3708193254686487,
+      "se": 0.034425325792386344,
+      "bar": 1.05,
+      "margin": -22.090341981942874
+     },
+     "cells": [
+      {
+       "depth": 4,
+       "rho": {
+        "point": 3.646059287285911,
+        "lo": 2.8791413159487047,
+        "hi": 4.862593328154753,
+        "se": 0.501592097789512,
+        "bar": 1.05,
+        "margin": 5.175638329883181
+       },
+       "gain": {
+        "point": 0.2895327804063872,
+        "lo": 0.23585641244232824,
+        "hi": 0.3708193254686487,
+        "se": 0.034425325792386344,
+        "bar": 1.05,
+        "margin": -22.090341981942874
+       },
+       "unbounded_model": false,
+       "R_P": 0.011686544579053895,
+       "R_I": 0.04036345923473916,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 8,
+       "rho": {
+        "point": 3.646059287285911,
+        "lo": 2.8920454390554067,
+        "hi": 4.857765627448524,
+        "se": 0.49866786047568634,
+        "bar": 1.05,
+        "margin": 5.20598878140952
+       },
+       "gain": {
+        "point": 0.2895327804063872,
+        "lo": 0.23796182611476485,
+        "hi": 0.37265971365621287,
+        "se": 0.03419276116494766,
+        "bar": 1.05,
+        "margin": -22.240591098363755
+       },
+       "unbounded_model": false,
+       "R_P": 0.011686544579053895,
+       "R_I": 0.04036345923473916,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 16,
+       "rho": {
+        "point": 3.646059287285911,
+        "lo": 2.9049099513529444,
+        "hi": 4.84001090885783,
+        "se": 0.49424985380477354,
+        "bar": 1.05,
+        "margin": 5.252524137946114
+       },
+       "gain": {
+        "point": 0.2895327804063873,
+        "lo": 0.23804391706914102,
+        "hi": 0.36819860836108076,
+        "se": 0.03374630821879023,
+        "bar": 1.05,
+        "margin": -22.534827059102664
+       },
+       "unbounded_model": false,
+       "R_P": 0.011686544579053895,
+       "R_I": 0.04036345923473915,
+       "spectral_resolution": NaN
+      },
+      {
+       "depth": 24,
+       "rho": {
+        "point": 3.646059287285911,
+        "lo": 2.904909951352944,
+        "hi": 4.822964203553718,
+        "se": 0.4976749554336074,
+        "bar": 1.05,
+        "margin": 5.216375184128066
+       },
+       "gain": {
+        "point": 0.2895327804063873,
+        "lo": 0.23825375010699518,
+        "hi": 0.36945797204993147,
+        "se": 0.03435708099110345,
+        "bar": 1.05,
+        "margin": -22.134220884205238
+       },
+       "unbounded_model": false,
+       "R_P": 0.011686544579053895,
+       "R_I": 0.04036345923473915,
+       "spectral_resolution": NaN
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "notes": [
+  "The `scope` column says which operator each gate verdict is about. A full-rank verdict does not transfer to a rank-restricted implementation of the same form, in either direction: a restricted P with a positive complement is itself full-rank and invertible, so it is a different operator rather than a weaker one. Screen the restriction directly with KrylovRestrictedPreconditioner.",
+  "Stage-1 cost includes every candidate screened, including the ones the gate rejected before any training FLOP was spent -- that is the point of having a stage 1, and hiding it would overstate the saving.",
+  "Fully-loaded totals charge the survivor for the whole search. Marginal totals charge it for itself. Both are shown because they answer different questions, and quoting only the second is the failure mode this ledger exists to prevent.",
+  "Gate mutant validation: ACHIEVED (autoresearch/logs/gate_mutants.json).",
+  "Wall clock: stage 1 6.2s, stage 2 4.3s. FLOPs, not seconds, are the comparison metric; timings are reported only so a run can be reproduced at a known scale."
+ ]
+}

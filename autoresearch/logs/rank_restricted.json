@@ -1,0 +1,589 @@
+{
+ "rows": [
+  {
+   "candidate": "dsn(delta=0.001)",
+   "scope": "full-rank",
+   "rank": null,
+   "verdict": "INDETERMINATE",
+   "rho_only": "INDETERMINATE",
+   "rho_ceiling": 0.46204128893444074,
+   "gain_ceiling": 78.90868311154927,
+   "trajectory_gain": 3.82017111585332,
+   "worst_depth_convergence": 4.697761505120079,
+   "reason": "no checkpoint passes; 1/3 fail outright | rho-only would say INDETERMINATE: no checkpoint passes; 1/3 fail outright",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "FAIL",
+     "rho": 0.08643025248664073,
+     "gain": 1.505828354329507
+    },
+    {
+     "step": 20,
+     "verdict": "INDETERMINATE",
+     "rho": 0.30500851204203233,
+     "gain": 19.322056201101418
+    },
+    {
+     "step": 39,
+     "verdict": "INDETERMINATE",
+     "rho": 0.46204128893444074,
+     "gain": 78.90868311154927
+    }
+   ]
+  },
+  {
+   "candidate": "dsn(delta=0.01)",
+   "scope": "full-rank",
+   "rank": null,
+   "verdict": "FAIL",
+   "rho_only": "FAIL",
+   "rho_ceiling": 0.5149598751018564,
+   "gain_ceiling": 9.847780678936251,
+   "trajectory_gain": 1.9812959356345208,
+   "worst_depth_convergence": 0.27862991618828314,
+   "reason": "FAIL at all 3 checkpoints | rho-only would say FAIL: FAIL at all 3 checkpoints",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "FAIL",
+     "rho": 0.20743637862978215,
+     "gain": 2.1274166126671408
+    },
+    {
+     "step": 20,
+     "verdict": "FAIL",
+     "rho": 0.35696584900298395,
+     "gain": 6.687493708083533
+    },
+    {
+     "step": 39,
+     "verdict": "FAIL",
+     "rho": 0.5149598751018564,
+     "gain": 9.847780678936251
+    }
+   ]
+  },
+  {
+   "candidate": "dsn(delta=0.1)",
+   "scope": "full-rank",
+   "rank": null,
+   "verdict": "FAIL",
+   "rho_only": "FAIL",
+   "rho_ceiling": 0.5709067978375433,
+   "gain_ceiling": 4.196438696253616,
+   "trajectory_gain": 3.756722576357058,
+   "worst_depth_convergence": 0.005133404981252616,
+   "reason": "FAIL at all 3 checkpoints | rho-only would say FAIL: FAIL at all 3 checkpoints",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "FAIL",
+     "rho": 0.5709067978375433,
+     "gain": 3.853829844590678
+    },
+    {
+     "step": 20,
+     "verdict": "FAIL",
+     "rho": 0.42189755554414954,
+     "gain": 3.3531687826449197
+    },
+    {
+     "step": 39,
+     "verdict": "FAIL",
+     "rho": 0.45065807635293764,
+     "gain": 4.196438696253616
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank8(delta=0.001,c=0.1)",
+   "scope": "rank-8",
+   "rank": 8,
+   "verdict": "INDETERMINATE",
+   "rho_only": "PASS",
+   "rho_ceiling": 138776.6438992609,
+   "gain_ceiling": 11.004702752699744,
+   "trajectory_gain": NaN,
+   "worst_depth_convergence": 4.84253926521858e-16,
+   "reason": "PASS at checkpoint(s) [39]; trajectory-level decrease undefined | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "INDETERMINATE",
+     "rho": 138776.6438992609,
+     "gain": NaN
+    },
+    {
+     "step": 20,
+     "verdict": "INDETERMINATE",
+     "rho": 22598.817162623847,
+     "gain": NaN
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 645.3797714710039,
+     "gain": 11.004702752699744
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank8(delta=0.001,c=1)",
+   "scope": "rank-8",
+   "rank": 8,
+   "verdict": "INDETERMINATE",
+   "rho_only": "PASS",
+   "rho_ceiling": 12350.91099788033,
+   "gain_ceiling": 10.726607402504373,
+   "trajectory_gain": NaN,
+   "worst_depth_convergence": 3.312057154222908e-16,
+   "reason": "PASS at checkpoint(s) [39]; trajectory-level decrease undefined | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "INDETERMINATE",
+     "rho": 12350.91099788033,
+     "gain": NaN
+    },
+    {
+     "step": 20,
+     "verdict": "INDETERMINATE",
+     "rho": 2668.1621025876634,
+     "gain": NaN
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 36.164897549464506,
+     "gain": 10.726607402504373
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank8(delta=0.001,c=10)",
+   "scope": "rank-8",
+   "rank": 8,
+   "verdict": "INDETERMINATE",
+   "rho_only": "PASS",
+   "rho_ceiling": 746.6577485426993,
+   "gain_ceiling": 3.559870930024695,
+   "trajectory_gain": NaN,
+   "worst_depth_convergence": 3.742460487299032e-16,
+   "reason": "PASS at checkpoint(s) [39]; trajectory-level decrease undefined | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "INDETERMINATE",
+     "rho": 746.6577485426993,
+     "gain": NaN
+    },
+    {
+     "step": 20,
+     "verdict": "INDETERMINATE",
+     "rho": 462.32357153942365,
+     "gain": NaN
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 2.352245211324248,
+     "gain": 3.559870930024695
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank8(delta=0.01,c=0.1)",
+   "scope": "rank-8",
+   "rank": 8,
+   "verdict": "INDETERMINATE",
+   "rho_only": "PASS",
+   "rho_ceiling": 36403.61852197739,
+   "gain_ceiling": 10.890619390010524,
+   "trajectory_gain": NaN,
+   "worst_depth_convergence": 4.893266698025337e-16,
+   "reason": "PASS at checkpoint(s) [39]; trajectory-level decrease undefined | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "INDETERMINATE",
+     "rho": 36403.61852197739,
+     "gain": NaN
+    },
+    {
+     "step": 20,
+     "verdict": "INDETERMINATE",
+     "rho": 5850.440183283662,
+     "gain": NaN
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 477.19796348433556,
+     "gain": 10.890619390010524
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank8(delta=0.01,c=1)",
+   "scope": "rank-8",
+   "rank": 8,
+   "verdict": "INDETERMINATE",
+   "rho_only": "PASS",
+   "rho_ceiling": 2348.9425269170856,
+   "gain_ceiling": 10.517676511966082,
+   "trajectory_gain": NaN,
+   "worst_depth_convergence": 5.066775453816066e-16,
+   "reason": "PASS at checkpoint(s) [39]; trajectory-level decrease undefined | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "INDETERMINATE",
+     "rho": 2348.9425269170856,
+     "gain": NaN
+    },
+    {
+     "step": 20,
+     "verdict": "INDETERMINATE",
+     "rho": 566.2161749736003,
+     "gain": NaN
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 25.876133982925666,
+     "gain": 10.517676511966082
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank8(delta=0.01,c=10)",
+   "scope": "rank-8",
+   "rank": 8,
+   "verdict": "INDETERMINATE",
+   "rho_only": "PASS",
+   "rho_ceiling": 75.68798234484979,
+   "gain_ceiling": 2.7663167076150983,
+   "trajectory_gain": NaN,
+   "worst_depth_convergence": 3.2106895687509447e-16,
+   "reason": "PASS at checkpoint(s) [39]; trajectory-level decrease undefined | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "INDETERMINATE",
+     "rho": 75.68798234484979,
+     "gain": NaN
+    },
+    {
+     "step": 20,
+     "verdict": "INDETERMINATE",
+     "rho": 52.67163248657546,
+     "gain": NaN
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 1.6613849341972646,
+     "gain": 2.7663167076150983
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank8(delta=0.1,c=0.1)",
+   "scope": "rank-8",
+   "rank": 8,
+   "verdict": "PASS",
+   "rho_only": "PASS",
+   "rho_ceiling": 2924.3174558501273,
+   "gain_ceiling": 371.85706251782665,
+   "trajectory_gain": 330.67242354721446,
+   "worst_depth_convergence": 1.0700453806940445e-15,
+   "reason": "PASS at checkpoint(s) [0, 20, 39]; trajectory sum R(P)/sum R(I) = 330.7 | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "PASS",
+     "rho": 2924.3174558501273,
+     "gain": 371.85706251782665
+    },
+    {
+     "step": 20,
+     "verdict": "PASS",
+     "rho": 570.3637705625853,
+     "gain": 151.77315291543033
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 115.57964303096378,
+     "gain": 7.656441706939349
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank8(delta=0.1,c=1)",
+   "scope": "rank-8",
+   "rank": 8,
+   "verdict": "PASS",
+   "rho_only": "PASS",
+   "rho_ceiling": 74.75571759587797,
+   "gain_ceiling": 293.4751902567362,
+   "trajectory_gain": 263.17632854619546,
+   "worst_depth_convergence": 1.1621442782488164e-15,
+   "reason": "PASS at checkpoint(s) [0, 20, 39]; trajectory sum R(P)/sum R(I) = 263.2 | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "PASS",
+     "rho": 74.75571759587797,
+     "gain": 293.4751902567362
+    },
+    {
+     "step": 20,
+     "verdict": "PASS",
+     "rho": 28.031405494750114,
+     "gain": 138.21989089000107
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 5.567609381093064,
+     "gain": 6.873404539880503
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank8(delta=0.1,c=10)",
+   "scope": "rank-8",
+   "rank": 8,
+   "verdict": "PASS",
+   "rho_only": "PASS",
+   "rho_ceiling": 1.4122978672230435,
+   "gain_ceiling": 16.31885044464459,
+   "trajectory_gain": 12.999477290631688,
+   "worst_depth_convergence": 1.0806790107299839e-15,
+   "reason": "PASS at checkpoint(s) [0, 20]; trajectory sum R(P)/sum R(I) = 13 | rho-only would say PASS: PASS at checkpoint(s) [0, 20]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "PASS",
+     "rho": 1.4122978672230435,
+     "gain": 13.14993126923303
+    },
+    {
+     "step": 20,
+     "verdict": "PASS",
+     "rho": 1.3131768232118102,
+     "gain": 16.31885044464459
+    },
+    {
+     "step": 39,
+     "verdict": "FAIL",
+     "rho": 0.34614993508680303,
+     "gain": 0.6795769307811077
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank2(delta=0.01,c=1)",
+   "scope": "rank-2",
+   "rank": 2,
+   "verdict": "PASS",
+   "rho_only": "PASS",
+   "rho_ceiling": 1533.518176429709,
+   "gain_ceiling": 31.318350692360735,
+   "trajectory_gain": 28.76484845153777,
+   "worst_depth_convergence": 1.134387220354837e-15,
+   "reason": "PASS at checkpoint(s) [0, 20, 39]; trajectory sum R(P)/sum R(I) = 28.76 | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "PASS",
+     "rho": 1533.518176429709,
+     "gain": 31.318350692360735
+    },
+    {
+     "step": 20,
+     "verdict": "PASS",
+     "rho": 37.47806514863623,
+     "gain": 19.733833357330887
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 3.6946166626391785,
+     "gain": 2.9585517892555044
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank4(delta=0.01,c=1)",
+   "scope": "rank-4",
+   "rank": 4,
+   "verdict": "INDETERMINATE",
+   "rho_only": "PASS",
+   "rho_ceiling": 1971.6540534678813,
+   "gain_ceiling": 14.95128092694453,
+   "trajectory_gain": NaN,
+   "worst_depth_convergence": 3.564290273348378e-16,
+   "reason": "PASS at checkpoint(s) [39]; trajectory-level decrease undefined | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "INDETERMINATE",
+     "rho": 1971.6540534678813,
+     "gain": NaN
+    },
+    {
+     "step": 20,
+     "verdict": "INDETERMINATE",
+     "rho": 470.16214029726166,
+     "gain": NaN
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 45.675793218412494,
+     "gain": 14.95128092694453
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank8(delta=0.01,c=1)",
+   "scope": "rank-8",
+   "rank": 8,
+   "verdict": "INDETERMINATE",
+   "rho_only": "PASS",
+   "rho_ceiling": 2348.9425269170856,
+   "gain_ceiling": 10.517676511966082,
+   "trajectory_gain": NaN,
+   "worst_depth_convergence": 5.066775453816066e-16,
+   "reason": "PASS at checkpoint(s) [39]; trajectory-level decrease undefined | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "INDETERMINATE",
+     "rho": 2348.9425269170856,
+     "gain": NaN
+    },
+    {
+     "step": 20,
+     "verdict": "INDETERMINATE",
+     "rho": 566.2161749736003,
+     "gain": NaN
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 25.876133982925666,
+     "gain": 10.517676511966082
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank16(delta=0.01,c=1)",
+   "scope": "rank-16",
+   "rank": 16,
+   "verdict": "INDETERMINATE",
+   "rho_only": "PASS",
+   "rho_ceiling": 1099.8934554854711,
+   "gain_ceiling": 349.40925117313407,
+   "trajectory_gain": NaN,
+   "worst_depth_convergence": 3.253687111600935e-16,
+   "reason": "PASS at checkpoint(s) [39]; trajectory-level decrease undefined | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "INDETERMINATE",
+     "rho": 1099.8934554854711,
+     "gain": NaN
+    },
+    {
+     "step": 20,
+     "verdict": "INDETERMINATE",
+     "rho": 187.89268551919528,
+     "gain": NaN
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 40.98407077995478,
+     "gain": 349.40925117313407
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank32(delta=0.01,c=1)",
+   "scope": "rank-32",
+   "rank": 32,
+   "verdict": "INDETERMINATE",
+   "rho_only": "PASS",
+   "rho_ceiling": 1266.2315332611322,
+   "gain_ceiling": 35.8265091359846,
+   "trajectory_gain": NaN,
+   "worst_depth_convergence": 3.9665753259025843e-16,
+   "reason": "PASS at checkpoint(s) [39]; trajectory-level decrease undefined | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "INDETERMINATE",
+     "rho": 1266.2315332611322,
+     "gain": NaN
+    },
+    {
+     "step": 20,
+     "verdict": "INDETERMINATE",
+     "rho": 286.25283180490715,
+     "gain": NaN
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 31.413871299944805,
+     "gain": 35.8265091359846
+    }
+   ]
+  },
+  {
+   "candidate": "dsn-rank64(delta=0.01,c=1)",
+   "scope": "rank-64",
+   "rank": 64,
+   "verdict": "PASS",
+   "rho_only": "PASS",
+   "rho_ceiling": 1500.2842797732114,
+   "gain_ceiling": 582.9674368760114,
+   "trajectory_gain": 261.6772406700518,
+   "worst_depth_convergence": 1.1193675034780457e-15,
+   "reason": "PASS at checkpoint(s) [0, 20, 39]; trajectory sum R(P)/sum R(I) = 261.7 | rho-only would say PASS: PASS at checkpoint(s) [0, 20, 39]",
+   "per_checkpoint": [
+    {
+     "step": 0,
+     "verdict": "PASS",
+     "rho": 1500.2842797732114,
+     "gain": 228.5177871242834
+    },
+    {
+     "step": 20,
+     "verdict": "PASS",
+     "rho": 236.4562594546781,
+     "gain": 582.9674368760114
+    },
+    {
+     "step": 39,
+     "verdict": "PASS",
+     "rho": 24.90832117945251,
+     "gain": 24.747702893452253
+    }
+   ]
+  }
+ ],
+ "k_max": 8,
+ "depths": [
+  25,
+  50,
+  75,
+  100
+ ],
+ "steps": 40,
+ "elapsed_s": 156.4901328086853
+}

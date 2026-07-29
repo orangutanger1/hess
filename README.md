@@ -15,13 +15,73 @@ at all three.
 | Does cross-step recycling save curvature products? | Plan 2 | No. Break-even by construction; measured 1.03–1.11x a fresh rebuild. |
 | Does the augmented-recycling break-even gate open? | `scripts/measure_faca_gate.py` | No. Closed or vacuous at every pair, both seeds. |
 
-DSN converges and does not beat AdamW. All ten F-defects found in Plan 2 are
-fixed, so the shortfall is not attributable to a bug.
+DSN converges and does not beat AdamW (MNIST 0.27–0.30 vs 0.15–0.18). All ten
+F-defects found in Plan 2 are fixed, so the shortfall is not attributable to a
+bug.
+
+**Full writeup: [`docs/writeup/`](docs/writeup/)** — the DSN negative result plus
+three findings that stand on their own regardless of it.
 
 The pre-registered kill criterion is defined on FLOPs-to-target-loss on the
 CIFAR-10 and WikiText tiers, neither of which was run, so it **has not been
 evaluated**. The writeup recommends against spending that budget and explains
 why; that decision is the project owner's.
+
+## Autoresearch harness
+
+`src/autoresearch/` is separate infrastructure: a two-stage screen for
+*candidate* preconditioners, built so the next mechanism gets instrumented
+before it gets a GPU budget rather than after. It implements no new optimizer —
+it is built against DSN as shipped, plain SGD, and a fixed-random-diagonal
+control.
+
+| stage | question | cost |
+| --- | --- | --- |
+| 1 — `gate.py` | is `P` favorable at this point on this trajectory? | a handful of Lanczos solves, no training |
+| 2 — `select.py` | which survivor actually wins, and how much do we believe it? | training trials on an adaptive seed budget |
+
+The stage-1 predicate is `measure_rho.py`'s `rho` generalized off `M` to any
+SPD `P` — verified to reproduce it to machine precision — plus a second,
+H-aware statistic. The second one is not optional: **`H` does not appear in
+`rho` at all**, so `rho` of a frozen preconditioner is provably identical before
+and after the curvature drifts, and a random diagonal that knows nothing passes
+the `rho`-only screen 79% of the time at wide spread. Both are logged
+measurements, not arguments.
+
+Stage 2 budgets family-wise error over the pool *as it grows* (`alpha * 6/(pi^2
+j^2)`, convergent over an unbounded pool), certifies discoveries under
+Benjamini–Yekutieli, and prints the naive rate beside the controlled one. The
+final ledger reports **search + training FLOPs per survivor**, not training
+alone; on a measured run the difference was 8.1x.
+
+    python scripts/validate_gate.py        # mutants must separate; exit 1 if not
+    python scripts/run_autoresearch.py     # refuses to run without that log
+
+Both statistics have since been attacked in the same way, and DSN is now
+screened at the rank it ships rather than at full rank. That second change
+**flips DSN's stage-1 verdict from FAIL to PASS** — the full-rank form is a
+different operator, not an upper bound — so the earlier rejection was not
+evidence about DSN. It does not make DSN good: at an equal 4e7-FLOP budget on
+the harness's own quadratic trial, both arms at their separately tuned learning
+rate, SGD reaches 0.00656 in 17,362 steps against DSN's 0.01244 in 1,432 —
+1.90x worse for the same FLOPs, and independent of any gate verdict.
+
+- Harness: `docs/superpowers/plans/2026-07-29-autoresearch-harness.md`
+- `gain` mutants + rank restriction: `docs/superpowers/plans/2026-07-29-gain-mutants-and-rank.md`
+- Mutant validation logs: `autoresearch/logs/gate_mutants.md`,
+  `autoresearch/logs/gain_mutants.md`, `autoresearch/logs/rank_restricted.md`
+
+## Documents
+
+Start with [`docs/writeup/`](docs/writeup/). Everything below it is the
+contemporaneous record, kept unedited for provenance.
+
+- Negative result: `docs/writeup/dsn-negative-result.md`
+- Self-referential diagnostics: `docs/writeup/self-referential-diagnostics.md`
+- Krylov recycling in trust-region Newton: `docs/writeup/krylov-recycling-in-trust-region-newton.md`
+- Autoresearch harness: `docs/writeup/autoresearch-harness.md`
+
+### Contemporaneous records
 
 - Result:  `docs/superpowers/plans/2026-07-29-negative-result.md`
 - Design:  `docs/superpowers/specs/2026-07-27-dynamic-subspace-newton-design.md`

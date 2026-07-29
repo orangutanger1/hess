@@ -1,0 +1,418 @@
+{
+ "G1": {
+  "mutant": "G1 subspace freeze",
+  "sgd_trained_loss": 0.006474354806242073,
+  "rows": [
+   {
+    "k": 4,
+    "epsilon": 0.1,
+    "verdict": "FAIL",
+    "rho_ceiling": 0.7738297813942618,
+    "gain_ceiling": 0.498329936265743,
+    "trained_loss": 0.17893776907651154,
+    "lr": 0.01
+   },
+   {
+    "k": 4,
+    "epsilon": 0.01,
+    "verdict": "FAIL",
+    "rho_ceiling": 3.682592444104017,
+    "gain_ceiling": 0.2361436533425867,
+    "trained_loss": 6.1064792871606945,
+    "lr": 0.01
+   },
+   {
+    "k": 4,
+    "epsilon": 0.001,
+    "verdict": "FAIL",
+    "rho_ceiling": 33.46962259987184,
+    "gain_ceiling": 0.2126087084293128,
+    "trained_loss": 14.656752191729415,
+    "lr": 0.003
+   },
+   {
+    "k": 8,
+    "epsilon": 0.1,
+    "verdict": "FAIL",
+    "rho_ceiling": 0.6223406311553389,
+    "gain_ceiling": 0.577542713148553,
+    "trained_loss": 0.23986431126973082,
+    "lr": 0.01
+   },
+   {
+    "k": 8,
+    "epsilon": 0.01,
+    "verdict": "FAIL",
+    "rho_ceiling": 1.2595508351008358,
+    "gain_ceiling": 0.12059848585492589,
+    "trained_loss": 8.800096578811111,
+    "lr": 0.01
+   },
+   {
+    "k": 8,
+    "epsilon": 0.001,
+    "verdict": "FAIL",
+    "rho_ceiling": 9.24267897206131,
+    "gain_ceiling": 0.08561436598773303,
+    "trained_loss": 43.4007030088354,
+    "lr": 0.003
+   },
+   {
+    "k": 12,
+    "epsilon": 0.1,
+    "verdict": "FAIL",
+    "rho_ceiling": 0.8762783820461418,
+    "gain_ceiling": 1.0183275798991227,
+    "trained_loss": 0.3031774129756798,
+    "lr": 0.01
+   },
+   {
+    "k": 12,
+    "epsilon": 0.01,
+    "verdict": "FAIL",
+    "rho_ceiling": 0.8133142833510657,
+    "gain_ceiling": 0.2223700751967298,
+    "trained_loss": 15.011194726827947,
+    "lr": 0.01
+   },
+   {
+    "k": 12,
+    "epsilon": 0.001,
+    "verdict": "FAIL",
+    "rho_ceiling": 2.838907035273923,
+    "gain_ceiling": 0.06560360845547988,
+    "trained_loss": 74.01833230700211,
+    "lr": 0.003
+   }
+  ],
+  "n_total": 9,
+  "n_trained_worse": 9,
+  "n_gain_fooled": 0,
+  "n_rho_fooled": 5,
+  "worst_rho": {
+   "k": 4,
+   "epsilon": 0.001,
+   "verdict": "FAIL",
+   "rho_ceiling": 33.46962259987184,
+   "gain_ceiling": 0.2126087084293128,
+   "trained_loss": 14.656752191729415,
+   "lr": 0.003
+  },
+  "worst_gain": {
+   "k": 12,
+   "epsilon": 0.1,
+   "verdict": "FAIL",
+   "rho_ceiling": 0.8762783820461418,
+   "gain_ceiling": 1.0183275798991227,
+   "trained_loss": 0.3031774129756798,
+   "lr": 0.01
+  }
+ },
+ "G2": {
+  "mutant": "G2 one-step locality",
+  "verdict": "INDETERMINATE",
+  "reason": "PASS at checkpoint(s) [0, 2]; but sum R(P)/sum R(I) over the trajectory is 0.06355 (<= 1.05) -- the per-checkpoint pass does not survive aggregation, which is what a trajectory actually accumulates | rho-only would say PASS: PASS at checkpoint(s) [0, 1, 2, 3]",
+  "per_checkpoint": [
+   {
+    "step": 0,
+    "phase": "phase-A",
+    "rho": 11.083662632119195,
+    "gain": 10.84326508135624
+   },
+   {
+    "step": 1,
+    "phase": "phase-B",
+    "rho": 11.083662632119195,
+    "gain": 0.060598048459313686
+   },
+   {
+    "step": 2,
+    "phase": "phase-A",
+    "rho": 11.083662632119195,
+    "gain": 10.84326508135624
+   },
+   {
+    "step": 3,
+    "phase": "phase-B",
+    "rho": 11.083662632119195,
+    "gain": 0.060598048459313686
+   }
+  ],
+  "max_checkpoint_gain": 10.84326508135624,
+  "trajectory_gain_sum_R": 0.063549196197976,
+  "fooled": false
+ },
+ "G3": {
+  "mutant": "G3 near-singular integrand",
+  "rows": [
+   {
+    "delta": 0.001,
+    "rho_exact": 1662.5526379974344,
+    "gain_exact": 4254.474310838206,
+    "cells": [
+     {
+      "depth": 5,
+      "rho": 17.393665283279756,
+      "gain": 17.443341253387388,
+      "rho_frac_of_exact": 0.010462023809502143,
+      "gain_frac_of_exact": 0.0040999991958937795,
+      "min_abs_node": 0.3678943244001946,
+      "spectral_resolution": 0.0027181718598958387
+     },
+     {
+      "depth": 10,
+      "rho": 51.36128442206538,
+      "gain": 51.83741201711802,
+      "rho_frac_of_exact": 0.030893027533811318,
+      "gain_frac_of_exact": 0.012184210840117903,
+      "min_abs_node": 0.1064870988935836,
+      "spectral_resolution": 0.009390808937328044
+     },
+     {
+      "depth": 25,
+      "rho": 191.9290179514174,
+      "gain": 200.84196665706872,
+      "rho_frac_of_exact": 0.11544237070448386,
+      "gain_frac_of_exact": 0.04720723454491827,
+      "min_abs_node": 0.02140297143593588,
+      "spectral_resolution": 0.04672248444536007
+     },
+     {
+      "depth": 50,
+      "rho": 554.1559843014753,
+      "gain": 645.4667933457599,
+      "rho_frac_of_exact": 0.33331635440364954,
+      "gain_frac_of_exact": 0.1517148174338351,
+      "min_abs_node": 0.005588955199993293,
+      "spectral_resolution": 0.17892431844885784
+     },
+     {
+      "depth": 100,
+      "rho": 1431.3425490184766,
+      "gain": 2409.3940113639155,
+      "rho_frac_of_exact": 0.8609306654750774,
+      "gain_frac_of_exact": 0.5663200281233388,
+      "min_abs_node": 0.0010661905498101298,
+      "spectral_resolution": 0.9379186489488983
+     },
+     {
+      "depth": 200,
+      "rho": 1662.5434240850564,
+      "gain": 4254.075115616846,
+      "rho_frac_of_exact": 0.9999944579725373,
+      "gain_frac_of_exact": 0.9999061704943563,
+      "min_abs_node": 0.0001590717850367313,
+      "spectral_resolution": 6.2864699718374935
+     }
+    ]
+   },
+   {
+    "delta": 0.01,
+    "rho_exact": 268.9474529594103,
+    "gain_exact": 1208.5536662076574,
+    "cells": [
+     {
+      "depth": 5,
+      "rho": 16.96301293458512,
+      "gain": 17.363812186745612,
+      "rho_frac_of_exact": 0.06307184822882553,
+      "gain_frac_of_exact": 0.01436743164350478,
+      "min_abs_node": 0.3678943244001946,
+      "spectral_resolution": 0.027181718598958387
+     },
+     {
+      "depth": 10,
+      "rho": 47.25368066289376,
+      "gain": 51.3568673373892,
+      "rho_frac_of_exact": 0.17569856171876558,
+      "gain_frac_of_exact": 0.04249448640418497,
+      "min_abs_node": 0.1064870988935836,
+      "spectral_resolution": 0.09390808937328043
+     },
+     {
+      "depth": 25,
+      "rho": 137.23007280756676,
+      "gain": 199.15547987310546,
+      "rho_frac_of_exact": 0.5102486426159893,
+      "gain_frac_of_exact": 0.16478827994294956,
+      "min_abs_node": 0.02140297143593588,
+      "spectral_resolution": 0.4672248444536007
+     },
+     {
+      "depth": 50,
+      "rho": 231.4515315787911,
+      "gain": 580.9172974583928,
+      "rho_frac_of_exact": 0.8605827236211896,
+      "gain_frac_of_exact": 0.48067149494590816,
+      "min_abs_node": 0.005588955199993293,
+      "spectral_resolution": 1.7892431844885786
+     },
+     {
+      "depth": 100,
+      "rho": 268.4818840787279,
+      "gain": 1173.6376613529626,
+      "rho_frac_of_exact": 0.9982689225141957,
+      "gain_frac_of_exact": 0.9711092640476129,
+      "min_abs_node": 0.0010661905498101298,
+      "spectral_resolution": 9.379186489488983
+     },
+     {
+      "depth": 200,
+      "rho": 268.94745295916226,
+      "gain": 1208.5536662070263,
+      "rho_frac_of_exact": 0.9999999999990776,
+      "gain_frac_of_exact": 0.9999999999994778,
+      "min_abs_node": 0.0001590717850367313,
+      "spectral_resolution": 62.86469971837493
+     }
+    ]
+   },
+   {
+    "delta": 0.1,
+    "rho_exact": 38.290803858273094,
+    "gain_exact": 265.70020632379874,
+    "cells": [
+     {
+      "depth": 5,
+      "rho": 13.622308308321623,
+      "gain": 16.709639385771514,
+      "rho_frac_of_exact": 0.3557592668658063,
+      "gain_frac_of_exact": 0.06288907192419757,
+      "min_abs_node": 0.3678943244001946,
+      "spectral_resolution": 0.2718171859895839
+     },
+     {
+      "depth": 10,
+      "rho": 26.41676769842922,
+      "gain": 48.50516609670975,
+      "rho_frac_of_exact": 0.6898984883212793,
+      "gain_frac_of_exact": 0.18255599710599527,
+      "min_abs_node": 0.1064870988935836,
+      "spectral_resolution": 0.9390808937328043
+     },
+     {
+      "depth": 25,
+      "rho": 36.897663891183875,
+      "gain": 172.02728865399953,
+      "rho_frac_of_exact": 0.9636168524367968,
+      "gain_frac_of_exact": 0.6474488335336722,
+      "min_abs_node": 0.02140297143593588,
+      "spectral_resolution": 4.672248444536007
+     },
+     {
+      "depth": 50,
+      "rho": 38.266163818853066,
+      "gain": 261.08206553207594,
+      "rho_frac_of_exact": 0.9993565024251977,
+      "gain_frac_of_exact": 0.9826189792788688,
+      "min_abs_node": 0.005588955199993293,
+      "spectral_resolution": 17.892431844885785
+     },
+     {
+      "depth": 100,
+      "rho": 38.290803783936816,
+      "gain": 265.70017571414564,
+      "rho_frac_of_exact": 0.9999999980586389,
+      "gain_frac_of_exact": 0.9999998847962766,
+      "min_abs_node": 0.0010661905498101298,
+      "spectral_resolution": 93.79186489488984
+     },
+     {
+      "depth": 200,
+      "rho": 38.290803858269896,
+      "gain": 265.7002063237944,
+      "rho_frac_of_exact": 0.9999999999999165,
+      "gain_frac_of_exact": 0.9999999999999838,
+      "min_abs_node": 0.0001590717850367313,
+      "spectral_resolution": 628.6469971837494
+     }
+    ]
+   }
+  ],
+  "n_unconverged_cells": 13,
+  "n_where_gain_slower": 13,
+  "gain_always_slower": true
+ },
+ "CAL": {
+  "study": "calibration: P = (|H| + delta)^-p",
+  "delta": 0.01,
+  "rows": [
+   {
+    "power": 0.0,
+    "verdict": "FAIL",
+    "rho": 0.9999999999999993,
+    "gain": 1.0000000000000002,
+    "rho_spectral": 0.9999999999999986,
+    "gain_spectral": 0.9999999999999987,
+    "trained_loss": 0.006242811029456952,
+    "lr": 0.01
+   },
+   {
+    "power": 0.25,
+    "verdict": "INDETERMINATE",
+    "rho": 1.3970579596274557,
+    "gain": 1.45762547363304,
+    "rho_spectral": 1.2936526862842148,
+    "gain_spectral": 1.4153411443577577,
+    "trained_loss": 0.010670222436551094,
+    "lr": 0.01
+   },
+   {
+    "power": 0.5,
+    "verdict": "INDETERMINATE",
+    "rho": 1.0643176806918648,
+    "gain": 1.3243279569563515,
+    "rho_spectral": 0.9870101883795322,
+    "gain_spectral": 1.3162952376351147,
+    "trained_loss": 0.009559173131210685,
+    "lr": 0.03
+   },
+   {
+    "power": 0.75,
+    "verdict": "FAIL",
+    "rho": 0.8055889919226025,
+    "gain": 1.1718618196618802,
+    "rho_spectral": 0.7124430799705863,
+    "gain_spectral": 1.1555122784768557,
+    "trained_loss": 0.19477426634175862,
+    "lr": 0.03
+   },
+   {
+    "power": 1.0,
+    "verdict": "FAIL",
+    "rho": 0.6600472403319733,
+    "gain": 0.945533304422151,
+    "rho_spectral": 0.5127120025119253,
+    "gain_spectral": 0.8195867123784215,
+    "trained_loss": 1.5211943375529888,
+    "lr": 0.03
+   },
+   {
+    "power": 1.25,
+    "verdict": "FAIL",
+    "rho": 0.5625947325509216,
+    "gain": 0.5735702497004845,
+    "rho_spectral": 0.3506264477391291,
+    "gain_spectral": 0.3421634329373498,
+    "trained_loss": 4.0293356776164275,
+    "lr": 0.03
+   },
+   {
+    "power": 1.5,
+    "verdict": "FAIL",
+    "rho": 0.5078126908200954,
+    "gain": 0.2558671301916306,
+    "rho_spectral": 0.23113708993580992,
+    "gain_spectral": 0.08836758008794539,
+    "trained_loss": 11.222204726542072,
+    "lr": 0.03
+   }
+  ],
+  "spearman_rho_vs_loss": -0.8571428571428571,
+  "spearman_gain_vs_loss": -0.75,
+  "best_trained_power": 0.0,
+  "best_rho_power": 0.25,
+  "best_gain_power": 0.25
+ },
+ "elapsed_s": 55.35780334472656
+}

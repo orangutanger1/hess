@@ -71,6 +71,7 @@ import time
 import torch
 from torchvision import datasets, transforms
 
+from _device import add_device_arg, resolve_device
 from dsn import DSN
 from dsn.curvature import hvp
 from dsn.lanczos import lanczos_iter
@@ -381,7 +382,11 @@ def main():
                          "L_H||s|| remains")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=str, default="")
+    add_device_arg(ap)
     args = ap.parse_args()
+
+    device = resolve_device(args.device)
+    print(f"device: {device}")
 
     torch.manual_seed(args.seed)
     ds = datasets.MNIST("data", train=True, download=True,
@@ -397,6 +402,7 @@ def main():
         except StopIteration:
             it = iter(loader)
             batches.append(next(it))
+    batches = [(x.to(device), y.to(device)) for x, y in batches]
 
     if args.fixed_batch:
         batches = [batches[0]] * len(batches)
@@ -406,8 +412,8 @@ def main():
     # same size, not a re-draw of the step's own batch.
     pool_n = args.sigma_batches * args.batch_size
     tail = len(ds) - pool_n - args.ref_batch
-    x_all = torch.stack([ds[i][0] for i in range(tail, len(ds))])
-    y_all = torch.tensor([ds[i][1] for i in range(tail, len(ds))])
+    x_all = torch.stack([ds[i][0] for i in range(tail, len(ds))]).to(device)
+    y_all = torch.tensor([ds[i][1] for i in range(tail, len(ds))]).to(device)
     args.x_pool, args.y_pool = x_all[:pool_n], y_all[:pool_n]
     args.x_ref, args.y_ref = x_all[pool_n:], y_all[pool_n:]
     args.sigma_idx = [
@@ -415,7 +421,7 @@ def main():
         for r in range(args.sigma_batches)
     ]
 
-    model = build_model()
+    model = build_model().to(device)
     params = list(model.parameters())
     opt = DSN(model.parameters(), lr=args.lr, weight_decay=0.0,
               builder=KrylovBuilder(k_max=args.k_max, m_recycle=args.m_recycle,
