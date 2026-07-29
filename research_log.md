@@ -560,3 +560,49 @@ EXCEPTION, TIMEOUT, possibly combined).
 }
 ```
 
+## 20260729T223539Z — committed (improved)
+
+```json
+{
+  "timestamp": "20260729T223539Z",
+  "benchmark": "cifar",
+  "status": "committed",
+  "decision": "KEEP",
+  "reason": "improved",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.6313096880912781,
+      "n_steps": 1976
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.6704057276248931,
+      "n_steps": 2019
+    }
+  ],
+  "mean_loss": 0.6508577078580856,
+  "baseline_mean": 0.6732918754220009,
+  "snapshot": "src/autoresearch/history/candidate_20260729T223539Z.py"
+}
+```
+
+## 20260729T224234Z — committed (shared_capability_sync)
+
+```json
+{
+  "timestamp": "20260729T224234Z",
+  "benchmark": "mnist",
+  "status": "committed",
+  "decision": "KEEP",
+  "reason": "shared_capability_sync",
+  "seed_results": null,
+  "mean_loss": 0.012371516600251199,
+  "baseline_mean": 0.012371516600251199,
+  "snapshot": "src/autoresearch/history/candidate_20260729T224234Z.py",
+  "note": "Manual sync, not a harness-measured run: the cifar chain just committed conv-layer Kronecker whitening (mean_loss 0.6509 vs 0.6733, see the cifar-tagged entry above), which is a no-op on mnist (no 4D params exist there -- the p.dim() in (2,4) branch still only ever triggers for dim==2). Syncing the mnist chain to the same file so a future mnist DISCARD does not revert-and-strip a capability that only cifar can exercise but that is harmless to carry on mnist. mean_loss carried forward unchanged, same reasoning as the 20260729T222752Z sync entry."
+}
+```
+

@@ -31,6 +31,24 @@ small/early matrices and under-damps large/late ones, which is a structural
 scale-inconsistency bug in the whitening, not a tunable knob. Damp relative
 to each matrix's own top eigenvalue instead (rel_damping * max_eigenvalue),
 so the correction is scale-invariant per layer and per training step.
+Committed: 0.0124 vs baseline 0.0349 (mnist).
+
+Correctness fix (20260729, manually committed, fe414a6): _inv_root's eigh
+call had no pre-decomposition stabilization. cifar's first Linear layer is
+fed by sparse ReLU/maxpool features, so its R (2048x2048) is exactly
+singular / has many repeated zero eigenvalues -- eigh itself failed to
+converge. mnist's dense tanh activations never hit this. Fixed with a tiny
+absolute epsilon added before eigh (independent of the relative damping
+applied to eigh's output). cifar baseline established after the fix:
+mean_loss=0.6733 (180s budget, conv layers still on the diagonal-Adam
+fallback below -- see next experiment).
+
+Experiment 11 (20260729): extend the Kronecker whitening to conv weights,
+flattening [out_c, in_c, kh, kw] to [out_c, in_c*kh*kw] and running the
+identical L/R machinery Linear layers already get (standard treatment, real
+Shampoo implementations do the same reshape). Testing against the 0.6733
+cifar baseline -- this is the real test of whether it helps; an earlier
+attempt this session was reverted before the eigh-stability fix landed.
 """
 
 import torch
@@ -99,8 +117,9 @@ class CandidateOptimizer(torch.optim.Optimizer):
                     state["step"] = 0
                     state["exp_avg"] = torch.zeros_like(p)
                     state["exp_avg_sq"] = torch.zeros_like(p)
-                    if p.dim() == 2:
-                        out_dim, in_dim = p.shape
+                    if p.dim() in (2, 4):
+                        out_dim = p.shape[0]
+                        in_dim = grad.reshape(out_dim, -1).shape[1]
                         state["L"] = torch.zeros(out_dim, out_dim, device=p.device, dtype=p.dtype)
                         state["R"] = torch.zeros(in_dim, in_dim, device=p.device, dtype=p.dtype)
                         state["L_inv_root"] = torch.eye(out_dim, device=p.device, dtype=p.dtype)
@@ -120,9 +139,18 @@ class CandidateOptimizer(torch.optim.Optimizer):
                 step_size = lr / bias_correction1
                 adam_update = exp_avg / denom * step_size  # the norm we graft onto
 
-                if p.dim() == 2:
-                    state["L"].mul_(beta2).add_(grad @ grad.T, alpha=1 - beta2)
-                    state["R"].mul_(beta2).add_(grad.T @ grad, alpha=1 - beta2)
+                if p.dim() in (2, 4):
+                    # Conv weights [out_c, in_c, kh, kw] get the identical
+                    # Kronecker whitening as Linear weights by flattening to
+                    # [out_c, in_c*kh*kw] -- previously fell through to the
+                    # plain-diagonal-Adam branch below with zero structural
+                    # treatment (mnist's Linear-only model can't surface
+                    # this gap; cifar's conv layers can).
+                    out_dim = p.shape[0]
+                    grad2d = grad.reshape(out_dim, -1)
+
+                    state["L"].mul_(beta2).add_(grad2d @ grad2d.T, alpha=1 - beta2)
+                    state["R"].mul_(beta2).add_(grad2d.T @ grad2d, alpha=1 - beta2)
 
                     if step == 1 or step % update_freq == 0:
                         L_hat = state["L"] / bias_correction2
@@ -130,7 +158,8 @@ class CandidateOptimizer(torch.optim.Optimizer):
                         state["L_inv_root"] = self._inv_root(L_hat, 4.0, rel_damping)
                         state["R_inv_root"] = self._inv_root(R_hat, 4.0, rel_damping)
 
-                    precond_grad = state["L_inv_root"] @ grad @ state["R_inv_root"]
+                    precond_grad2d = state["L_inv_root"] @ grad2d @ state["R_inv_root"]
+                    precond_grad = precond_grad2d.reshape(p.shape)
 
                     shampoo_exp_avg = state["shampoo_exp_avg"]
                     shampoo_exp_avg.mul_(beta1).add_(precond_grad, alpha=1 - beta1)
