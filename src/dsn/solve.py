@@ -27,19 +27,25 @@ def subspace_newton(
 
 
 def newton_residual(
-    T: torch.Tensor,
-    Wg: torch.Tensor,
+    HW: torch.Tensor,
+    g: torch.Tensor,
     y: torch.Tensor,
-    beta_next: torch.Tensor,
 ) -> torch.Tensor:
     """Norm of the Newton residual ``H d + g`` for ``d = W y``.
 
-    Exact for an undeflated Krylov basis, where the residual splits into an
-    in-span part ``T y + Wg`` and one orthogonal leak of size
-    ``beta_next * y[-1]``. With deflation it is an estimate: the curvature image
-    of the recycled space can leave the span in a direction ``beta_next`` does
-    not track.
+    Computed from the curvature images ``HW`` (column ``i`` is ``H w_i``)
+    directly, so it is the *true* residual against the operator that produced
+    those images, with no in-span/leak split and no dependence on the projected
+    curvature ``T``.
+
+    This replaces an earlier ``(T, Wg, y, beta_next)`` form that summed the
+    in-span part ``T y + Wg`` with a single orthogonal leak ``beta_next*y[-1]``.
+    That form was exact only for an undeflated Krylov basis: with deflation the
+    curvature image of the recycled block leaves the span in directions
+    ``beta_next`` does not track, and -- worse -- it measured against the same
+    ``T`` that a stale recycled block corrupts, so the reported residual
+    *improved* as the subspace degraded (Task 9 findings doc, F8). Measuring
+    against ``HW`` removes that blind spot by construction: no quantity in this
+    expression comes from a previous iterate.
     """
-    inside = T @ y + Wg
-    leak = beta_next * y[-1]
-    return torch.sqrt(inside.dot(inside) + leak * leak)
+    return (HW @ y + g).norm()

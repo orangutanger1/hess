@@ -14,13 +14,22 @@ class LanczosState:
     """State after ``j`` Lanczos directions.
 
     Q         (n, j) orthonormal basis, orthogonal to the deflation space U
+    HQ        (n, j) curvature images H q_i, retained as computed
     alphas    (j,)   diagonal of Q'HQ
     betas     (j-1,) off-diagonal of Q'HQ
     beta_next scalar norm of the next unnormalized Lanczos vector
     n_hvp     number of curvature-vector products consumed so far
+
+    ``HQ`` costs no extra curvature products -- each column is the ``matvec``
+    output the recurrence already computed, kept instead of discarded after the
+    orthogonalization consumes it. Retaining it is what lets the caller form the
+    true residual ``H (W y) + g`` rather than an in-span estimate, which is the
+    only measurement that can detect a stale recycled block (see the Task 9
+    findings doc, F8).
     """
 
     Q: torch.Tensor
+    HQ: torch.Tensor
     alphas: torch.Tensor
     betas: torch.Tensor
     beta_next: torch.Tensor
@@ -47,11 +56,13 @@ def lanczos_iter(
         return
 
     q_list = [r / beta]
+    hq_list: list[torch.Tensor] = []
     alphas: list[torch.Tensor] = []
     betas: list[torch.Tensor] = []
 
     for j in range(k_max):
         w = matvec(q_list[j])
+        hq_list.append(w)
         alpha = torch.dot(w, q_list[j])
         alphas.append(alpha)
 
@@ -67,6 +78,7 @@ def lanczos_iter(
 
         yield LanczosState(
             Q=torch.stack(q_list, dim=1),
+            HQ=torch.stack(hq_list, dim=1),
             alphas=torch.stack(alphas),
             betas=torch.stack(betas) if betas else w.new_zeros(0),
             beta_next=beta_next,

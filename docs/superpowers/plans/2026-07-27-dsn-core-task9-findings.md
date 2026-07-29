@@ -1,5 +1,15 @@
 # Task 9 method-level findings: the trust region under mini-batch noise
 
+> **Superseded — all of F1-F9 are fixed.** See
+> [`2026-07-28-dsn-plan2-fixes.md`](2026-07-28-dsn-plan2-fixes.md) for what was
+> done and what was measured afterwards. Two claims recorded below did not
+> survive Plan 2's honest re-measurement and are corrected there: recycling was
+> never better than an equal-width fresh basis (F8's gate asserted the reverse),
+> and recycling's apparent curvature-product saving was an artifact of the same
+> optimistic residual F8 identifies. The diagnosis below is otherwise accurate
+> and is what Plan 2 built on; it is left unedited as the record of the state
+> before the fixes.
+
 **Status: ruled DEFER-TO-PLAN-2.** These are findings about the *method*
 (`src/dsn/optimizer.py`), not about the test suite. Per the user's ruling
 on the Task 9 fix round, none of them are fixed on this branch — no

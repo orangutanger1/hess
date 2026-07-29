@@ -49,6 +49,15 @@ def test_basis_is_orthogonal_to_deflation_space():
     )
 
 
+def test_curvature_images_are_retained_exactly():
+    """HQ must be H @ Q column for column: the true residual is built from it."""
+    n = 11
+    A = sym_matrix(n)
+    state = list(lanczos_iter(lambda v: A @ v, torch.randn(n), k_max=5))[-1]
+
+    torch.testing.assert_close(state.HQ, A @ state.Q, atol=1e-12, rtol=0)
+
+
 def test_tridiagonal_matches_explicit_projection():
     n = 9
     A = sym_matrix(n)

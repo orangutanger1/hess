@@ -2,22 +2,26 @@
 
 Usage:  python scripts/sanity_mnist.py [--steps 200] [--optimizer dsn|adamw]
 
-**Expect the DSN run to DIVERGE. That is the documented behavior, not a bug in
-this script.** This is a mini-batch closure, and DSN's lagged trust-region
-acceptance ratio is only valid under a fixed, full-batch closure -- see "Known
-limitations" in README.md and F1/F2 in
-docs/superpowers/plans/2026-07-27-dsn-core-task9-findings.md. At these exact
-defaults (200 steps, lr 1e-2, k_max 8, m_recycle 4, batch 256) the findings doc
-records final losses of 9.2297 / 5.8713 / 4.6986 across three seeds, against
-~0.15 for `--optimizer adamw` on the same data. Run with `--optimizer adamw`
-for the converging reference.
+At these exact defaults (200 steps, lr 1e-2, k_max 8, m_recycle 4, batch 256),
+measured last-10-step mean loss over three seeds:
 
-Note also that telemetry `k` reports the *total* basis width, i.e. up to
-`k_max + m_recycle` = 12 here, not `k_max` alone (findings doc F6).
+    DSN    0.2678 / 0.3010 / 0.2805   trust_radius stable at 2.0, n_shrink 5-7
+    AdamW  0.1512 / 0.1781 / 0.1713
+
+Both converge. Before Plan 2 fixed the trust-region acceptance ratio (F1/F2),
+the same DSN runs *diverged* to 9.2297 / 5.8713 / 4.6986 with trust_radius
+collapsing to 7.3e-12 / 3.0e-8 / 1.9e-6 and n_shrink at 102-117 of 200, because
+`rho` compared the loss of two different mini-batches. Run with
+`--optimizer adamw` for the reference.
+
+Note that telemetry `k` reports the *total* basis width, i.e. up to
+`k_max + m_recycle` = 12 here, not `k_max` alone (findings doc F6). It reports 8
+on this problem because recycling does not engage: no Ritz pair converges within
+8 Lanczos directions on a 76k-parameter MLP, and DSN deflates only converged
+directions (Plan 2, F10). `reuse` therefore reads 0.00 throughout.
 """
 
 import argparse
-import sys
 import time
 
 import torch
@@ -52,13 +56,6 @@ def main():
 
     model = build_model()
     if args.optimizer == "dsn":
-        print(
-            "WARNING: DSN is expected to DIVERGE on this mini-batch run. Its "
-            "lagged trust-region ratio is only valid for a fixed full-batch "
-            "closure; see 'Known limitations' in README.md (F1/F2). Use "
-            "--optimizer adamw for the converging reference.",
-            file=sys.stderr,
-        )
         opt = DSN(model.parameters(), lr=args.lr, weight_decay=0.0,
                   builder=KrylovBuilder(k_max=8, m_recycle=4, tau=0.1))
     else:

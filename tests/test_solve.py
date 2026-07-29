@@ -66,8 +66,34 @@ def test_residual_matches_explicit_norm_for_krylov_basis():
     d = state.Q @ y
 
     torch.testing.assert_close(
-        newton_residual(T, Wg, y, state.beta_next),
+        newton_residual(state.HQ, g, y),
         (A @ d + g).norm(),
+        rtol=1e-8,
+        atol=1e-10,
+    )
+
+
+def test_residual_matches_explicit_norm_for_a_deflated_basis():
+    """The case the old (T, Wg, y, beta_next) form could only estimate.
+
+    With deflation, ``H U`` leaves the span in directions ``beta_next`` does not
+    track, so the in-span-plus-one-leak formula understated the residual. The
+    HW form has no such gap: assert it against the dense truth on the combined
+    basis [U, Q], which is where F8's optimism used to live.
+    """
+    n = 14
+    A = spd_matrix(n)
+    g = torch.randn(n)
+    U, _ = torch.linalg.qr(torch.randn(n, 3))
+    state = list(lanczos_iter(lambda v: A @ v, g, k_max=4, U=U))[-1]
+
+    W = torch.cat([U, state.Q], dim=1)
+    HW = torch.cat([A @ U, state.HQ], dim=1)
+    y, _, _ = subspace_newton(W.T @ A @ W, W.T @ g, damping=1e-3)
+
+    torch.testing.assert_close(
+        newton_residual(HW, g, y),
+        (A @ (W @ y) + g).norm(),
         rtol=1e-8,
         atol=1e-10,
     )
@@ -83,4 +109,4 @@ def test_residual_falls_to_zero_when_krylov_space_is_complete():
     Wg = state.Q.T @ g
     y, _, _ = subspace_newton(T, Wg, damping=0.0)
 
-    assert newton_residual(T, Wg, y, state.beta_next) < 1e-8 * g.norm()
+    assert newton_residual(state.HQ, g, y) < 1e-8 * g.norm()
