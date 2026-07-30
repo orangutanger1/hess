@@ -772,3 +772,45 @@ around it. Re-baselining both chains below.
 }
 ```
 
+## 20260730T034021Z — committed (improved)
+
+```json
+{
+  "timestamp": "20260730T034021Z",
+  "benchmark": "mnist",
+  "status": "committed",
+  "decision": "KEEP",
+  "reason": "improved",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.10428745505341652,
+      "n_steps": 3226
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.09482007100472174,
+      "n_steps": 3214
+    },
+    {
+      "seed": 2,
+      "result": "OK",
+      "loss": 0.10123840385002722,
+      "n_steps": 3262
+    },
+    {
+      "seed": 3,
+      "result": "OK",
+      "loss": 0.10389645296843356,
+      "n_steps": 3369
+    }
+  ],
+  "mean_loss": 0.10106059571914974,
+  "baseline_mean": 0.12842385994254074,
+  "noise_margin_rel": 0.05,
+  "snapshot": "src/autoresearch/history/candidate_20260730T034021Z.py"
+}
+```
+

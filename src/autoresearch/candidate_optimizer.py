@@ -7,168 +7,180 @@ logic, logging) lives outside this file and is not meant to change per
 candidate.
 
 Experiment 4 (20260729): Shampoo-lite + Adam grafting + bias-corrected L/R.
-
-Experiment 2 tried the same Kronecker-factored whitening below but applied
-the raw preconditioned step at the AdamW baseline's lr (1e-3) and diverged
-(mean_loss 373 vs baseline 0.035) -- L^-1/4 G R^-1/4 is not scaled the way
-Adam's per-element-normalized update is, so the same lr is wildly too large.
-Experiment 3 grafted: keep the Shampoo *direction* (from the accumulated,
-noise-aware Kronecker factors -- still the favored direction per the seed
-knowledge) but rescale each tensor's step to match the norm the diagonal
-Adam accumulator would have taken. That beat baseline (0.0242 vs 0.0349) and
-is committed. This experiment adds one more fix in the same spirit as
-AdamW's own bias correction: L and R are EMAs initialized at zero, so their
-early-step values are biased toward zero (over-confident inverse roots)
-exactly like exp_avg_sq would be without bias correction -- divide by
-(1 - beta2**step) before taking the inverse root, same as Adam already does
-for its own denom. Committed: 0.0173 vs baseline 0.0349.
-
 Experiment 6 (20260729): relative eigenvalue damping instead of absolute.
-_inv_root's damping floor was a fixed absolute eps (1e-8) added to L/R's
-eigenvalues. But L/R's scale drifts with gradient magnitude, layer size, and
-how far into the EMA window training is -- an absolute floor over-damps
-small/early matrices and under-damps large/late ones, which is a structural
-scale-inconsistency bug in the whitening, not a tunable knob. Damp relative
-to each matrix's own top eigenvalue instead (rel_damping * max_eigenvalue),
-so the correction is scale-invariant per layer and per training step.
-Committed: 0.0124 vs baseline 0.0349 (mnist).
+Experiment 11 (20260729): extend the Kronecker whitening to conv weights.
+Correctness fix (20260729, fe414a6): pre-eigh stabilization epsilon.
+These are the committed history up to mean_loss 0.0124 (mnist, old metric) /
+0.6509 (cifar, old metric) -- see src/autoresearch/history/ snapshots and
+research_log.md for the full trail; not repeated here since none of it
+carries forward into this experiment's design.
 
-Correctness fix (20260729, manually committed, fe414a6): _inv_root's eigh
-call had no pre-decomposition stabilization. cifar's first Linear layer is
-fed by sparse ReLU/maxpool features, so its R (2048x2048) is exactly
-singular / has many repeated zero eigenvalues -- eigh itself failed to
-converge. mnist's dense tanh activations never hit this. Fixed with a tiny
-absolute epsilon added before eigh (independent of the relative damping
-applied to eigh's output). cifar baseline established after the fix:
-mean_loss=0.6733 (180s budget, conv layers still on the diagonal-Adam
-fallback below -- see next experiment).
+Harness fix (20260730, see research_log.md): the measurement noise floor
+was root-caused (wall-clock step-count jitter landing on different
+minibatches in a trailing-train-batch-average metric, NOT CPU BLAS
+nondeterminism as first hypothesized) and fixed in scripts/run_experiment.py
+(eval-based metric, 4 seeds, 5% noise-margin gate). Both chains re-baselined
+against byte-identical candidate code: mnist 0.0124 -> 0.1284, cifar
+0.6733 -> 1.1730 (the eval metric reads different values than the old
+trailing-train-batch metric -- not regressions).
 
-Experiment 11 (20260729): extend the Kronecker whitening to conv weights,
-flattening [out_c, in_c, kh, kw] to [out_c, in_c*kh*kw] and running the
-identical L/R machinery Linear layers already get (standard treatment, real
-Shampoo implementations do the same reshape). Testing against the 0.6733
-cifar baseline -- this is the real test of whether it helps; an earlier
-attempt this session was reverted before the eigh-stability fix landed.
+Experiment 12 (20260730): real curvature via Hessian-vector product
+(dsn.curvature.hvp, enabled by also giving the harness a real closure --
+opt.step(closure) instead of loss.backward()+bare opt.step(), mirroring
+sanity_mnist.py's own DSN loop -- kept regardless of this result, since it's
+a reusable capability, not tied to any one candidate). Replaced Adam-norm
+grafting's step-length heuristic with the Newton-optimal scalar (g.v)/(v.H.v)
+along the joint Shampoo direction (all dim-2/4 params sharing one global
+step length, trust-capped at 3x the aggregate Adam-implied norm after an
+uncapped first attempt diverged past loss 50 -- same lesson DSN's own trust
+region already encodes: a raw Newton step isn't trustworthy far from where
+the local quadratic model is accurate). Discarded: mean_loss 0.4682 vs
+baseline 0.1284, clearly worse and not a step-count artifact (2531-2712
+steps vs baseline's ~3030-3071, only ~15-20% fewer). Forcing every whitened
+tensor to share one global Newton scalar is likely too coarse across layers
+of very different scale (784x96 vs 96x10) -- per-tensor Newton scaling is
+the natural follow-up if a future attempt wants to revisit HVP-based scaling,
+though its added per-tensor double-backward cost would cut step count
+further.
+
+Experiment 13 (20260730): Muon (Newton-Schulz orthogonalization), no
+covariance accumulation at all.
+
+Blind spot this targets: the seed knowledge in program.md says accumulated,
+noise-aware statistics (Shampoo/Adagrad-style, whitening by gradient
+covariance built up over many steps) are the theoretically favored
+direction over one-shot Hessian estimation -- and every committed candidate
+on this branch (experiments 3/4/6/11/12) has taken that seriously, going
+further into accumulation (bias correction, relative damping, conv support,
+now even real curvature). None of them have questioned the OTHER premise
+those methods share: that per-element or per-layer covariance-based
+*scaling* is what a good preconditioner should be doing at all. Muon starts
+from a different assumption entirely -- that what matters is
+*orthogonalizing* the update (equalizing its singular values via the matrix
+sign function) rather than reweighting it by any accumulated second-moment
+statistic, noise-aware or not. It carries no L/R covariance state, no eigh,
+no bias-corrected EMA of a preconditioner -- just a momentum buffer and a
+handful of matmuls (Newton-Schulz quintic iteration) computed fresh every
+step. This is a real structural alternative to the whole Shampoo-lite
+lineage above, not a variant of it, and per program.md it was "reasoned
+about but never implemented as its own candidate" until now.
+
+Implementation follows the public reference (Jordan et al., "Muon: An
+optimizer for the hidden layers of neural networks"): a nesterov-style
+momentum lookahead (grad + momentum*buf) is orthogonalized via 5 steps of
+the quintic Newton-Schulz iteration (X <- aX + (bA + cA^2)X, A = XX^T,
+tuned coefficients a=3.4445, b=-4.7750, c=2.0315 for fast convergence to the
+semi-orthogonal polar factor), then scaled by max(1, out_dim/in_dim)^0.5 (a
+correction so the update's spectral norm doesn't shrink for rectangular
+layers) and applied at the harness's fixed lr (1e-2) with no extra
+multiplier for this first test -- deliberately the most direct, least-tuned
+version, so a loss/win here is attributable to the orthogonalization idea
+itself rather than a hand-picked scale. 1D/bias params keep the same
+bias-corrected diagonal Adam path every prior candidate used (Muon's own
+reference implementation likewise reserves a separate optimizer for
+non-matrix params); this candidate isn't claiming anything new for those.
 """
 
 import torch
 
 
+def _newton_schulz5(G, steps=5, eps=1e-7):
+    """Approximate msign(G) -- the nearest semi-orthogonal matrix to G --
+    via the quintic Newton-Schulz iteration (Jordan et al.'s Muon). No
+    eigendecomposition: a handful of matmuls, cheap relative to the
+    Kronecker-whitening path's per-tensor eigh calls above.
+    """
+    assert G.dim() == 2
+    a, b, c = 3.4445, -4.7750, 2.0315
+    X = G / (G.norm() + eps)
+    transposed = X.shape[0] > X.shape[1]
+    if transposed:
+        X = X.T
+    for _ in range(steps):
+        A = X @ X.T
+        B = b * A + c * A @ A
+        X = a * X + B @ X
+    if transposed:
+        X = X.T
+    return X
+
+
 class CandidateOptimizer(torch.optim.Optimizer):
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
-                 weight_decay=0.01, precond_update_freq=10, rel_damping=1e-4):
+                 weight_decay=0.01, muon_momentum=0.95, ns_steps=5):
         if lr <= 0.0:
             raise ValueError(f"invalid lr: {lr}")
         if not 0.0 <= betas[0] < 1.0 or not 0.0 <= betas[1] < 1.0:
             raise ValueError(f"invalid betas: {betas}")
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay,
-                         precond_update_freq=precond_update_freq, rel_damping=rel_damping)
+                         muon_momentum=muon_momentum, ns_steps=ns_steps)
         super().__init__(params, defaults)
 
-    @staticmethod
-    def _inv_root(mat, power, rel_damping):
-        # Damp relative to this matrix's own top eigenvalue, not an absolute
-        # constant -- L/R's scale drifts with gradient magnitude, layer size,
-        # and training progress, so a fixed absolute eps over-damps small/
-        # early matrices and under-damps large/late ones.
-        dim = mat.shape[0]
-        eye = torch.eye(dim, device=mat.device, dtype=mat.dtype)
-        # Tiny absolute stabilization BEFORE eigh: exactly-singular / heavily
-        # repeated-eigenvalue matrices (e.g. R for a Linear layer fed by
-        # sparse ReLU/maxpool features -- many input channels are exactly
-        # zero for every sample seen, so R has exact-zero rows/cols) make the
-        # LAPACK eigensolver itself fail to converge, independent of the
-        # relative damping applied to its output below. MNIST's dense tanh
-        # activations never hit this; CIFAR's sparse conv features do.
-        evals, evecs = torch.linalg.eigh(mat + 1e-10 * eye)
-        damping = rel_damping * evals.clamp_min(0.0).max().clamp_min(1e-12)
-        evals = evals.clamp_min(damping)
-        inv_root_evals = evals.pow(-1.0 / power)
-        return (evecs * inv_root_evals.unsqueeze(0)) @ evecs.T
-
-    @torch.no_grad()
     def step(self, closure=None):
-        loss = None
-        if closure is not None:
-            with torch.enable_grad():
-                loss = closure()
+        if closure is None:
+            raise RuntimeError(
+                "CandidateOptimizer.step() requires a closure (a zero-arg "
+                "callable returning the loss) -- the harness always "
+                "supplies one."
+            )
 
-        for group in self.param_groups:
-            beta1, beta2 = group["betas"]
-            lr = group["lr"]
-            eps = group["eps"]
-            weight_decay = group["weight_decay"]
-            update_freq = group["precond_update_freq"]
-            rel_damping = group["rel_damping"]
+        all_params = [p for group in self.param_groups for p in group["params"]]
+        loss = closure()
+        raw_grads = torch.autograd.grad(loss, all_params, create_graph=False, allow_unused=True)
+        grad_map = {id(p): g for p, g in zip(all_params, raw_grads)}
 
-            for p in group["params"]:
-                if p.grad is None:
-                    continue
-                grad = p.grad
-                if grad.is_sparse:
-                    raise RuntimeError("CandidateOptimizer does not support sparse gradients")
+        with torch.no_grad():
+            for group in self.param_groups:
+                beta1, beta2 = group["betas"]
+                lr = group["lr"]
+                eps = group["eps"]
+                weight_decay = group["weight_decay"]
+                momentum = group["muon_momentum"]
+                ns_steps = group["ns_steps"]
 
-                state = self.state[p]
+                for p in group["params"]:
+                    grad = grad_map.get(id(p))
+                    if grad is None:
+                        continue
+                    if grad.is_sparse:
+                        raise RuntimeError("CandidateOptimizer does not support sparse gradients")
 
-                if weight_decay != 0.0:
-                    p.mul_(1 - lr * weight_decay)
+                    if weight_decay != 0.0:
+                        p.mul_(1 - lr * weight_decay)
 
-                if len(state) == 0:
-                    state["step"] = 0
-                    state["exp_avg"] = torch.zeros_like(p)
-                    state["exp_avg_sq"] = torch.zeros_like(p)
+                    state = self.state[p]
+
                     if p.dim() in (2, 4):
+                        if "muon_buf" not in state:
+                            state["muon_buf"] = torch.zeros_like(p)
+                        buf = state["muon_buf"]
+                        buf.mul_(momentum).add_(grad)
+                        lookahead = grad.add(buf, alpha=momentum)  # nesterov-style
+
                         out_dim = p.shape[0]
-                        in_dim = grad.reshape(out_dim, -1).shape[1]
-                        state["L"] = torch.zeros(out_dim, out_dim, device=p.device, dtype=p.dtype)
-                        state["R"] = torch.zeros(in_dim, in_dim, device=p.device, dtype=p.dtype)
-                        state["L_inv_root"] = torch.eye(out_dim, device=p.device, dtype=p.dtype)
-                        state["R_inv_root"] = torch.eye(in_dim, device=p.device, dtype=p.dtype)
-                        state["shampoo_exp_avg"] = torch.zeros_like(p)
-                state["step"] += 1
-                step = state["step"]
+                        g2d = lookahead.reshape(out_dim, -1)
+                        in_dim = g2d.shape[1]
+                        o2d = _newton_schulz5(g2d, steps=ns_steps)
+                        o = o2d.reshape(p.shape)
 
-                exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
-                exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
-                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+                        scale = max(1.0, out_dim / in_dim) ** 0.5
+                        p.add_(o, alpha=-lr * scale)
+                    else:
+                        if "step" not in state:
+                            state["step"] = 0
+                            state["exp_avg"] = torch.zeros_like(p)
+                            state["exp_avg_sq"] = torch.zeros_like(p)
+                        state["step"] += 1
+                        step = state["step"]
 
-                bias_correction1 = 1 - beta1 ** step
-                bias_correction2 = 1 - beta2 ** step
+                        exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
+                        exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+                        exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
-                denom = (exp_avg_sq.sqrt() / (bias_correction2 ** 0.5)).add_(eps)
-                step_size = lr / bias_correction1
-                adam_update = exp_avg / denom * step_size  # the norm we graft onto
-
-                if p.dim() in (2, 4):
-                    # Conv weights [out_c, in_c, kh, kw] get the identical
-                    # Kronecker whitening as Linear weights by flattening to
-                    # [out_c, in_c*kh*kw] -- previously fell through to the
-                    # plain-diagonal-Adam branch below with zero structural
-                    # treatment (mnist's Linear-only model can't surface
-                    # this gap; cifar's conv layers can).
-                    out_dim = p.shape[0]
-                    grad2d = grad.reshape(out_dim, -1)
-
-                    state["L"].mul_(beta2).add_(grad2d @ grad2d.T, alpha=1 - beta2)
-                    state["R"].mul_(beta2).add_(grad2d.T @ grad2d, alpha=1 - beta2)
-
-                    if step == 1 or step % update_freq == 0:
-                        L_hat = state["L"] / bias_correction2
-                        R_hat = state["R"] / bias_correction2
-                        state["L_inv_root"] = self._inv_root(L_hat, 4.0, rel_damping)
-                        state["R_inv_root"] = self._inv_root(R_hat, 4.0, rel_damping)
-
-                    precond_grad2d = state["L_inv_root"] @ grad2d @ state["R_inv_root"]
-                    precond_grad = precond_grad2d.reshape(p.shape)
-
-                    shampoo_exp_avg = state["shampoo_exp_avg"]
-                    shampoo_exp_avg.mul_(beta1).add_(precond_grad, alpha=1 - beta1)
-
-                    shampoo_norm = shampoo_exp_avg.norm().clamp_min(eps)
-                    adam_norm = adam_update.norm()
-                    graft_direction = shampoo_exp_avg / shampoo_norm
-                    p.add_(graft_direction, alpha=-float(adam_norm))
-                else:
-                    p.addcdiv_(exp_avg, denom, value=-step_size)
+                        bias_correction1 = 1 - beta1 ** step
+                        bias_correction2 = 1 - beta2 ** step
+                        denom = (exp_avg_sq.sqrt() / (bias_correction2 ** 0.5)).add_(eps)
+                        step_size = lr / bias_correction1
+                        p.addcdiv_(exp_avg, denom, value=-step_size)
 
         return loss
