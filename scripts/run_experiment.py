@@ -146,10 +146,18 @@ def run_worker(seed, budget_seconds, lr, batch_size, device_name, result_path,
                 x, y = next(it)
             x, y = x.to(device), y.to(device)
 
-            opt.zero_grad()
-            loss = torch.nn.functional.cross_entropy(model(x), y)
-            loss.backward()
-            opt.step()
+            # Closure-based step (mirrors sanity_mnist.py's own DSN loop):
+            # the closure is a pure forward pass with no zero_grad/backward
+            # of its own, so a candidate can invoke it more than once per
+            # step (fresh graph each call) to compute real Hessian-vector
+            # products via dsn.curvature.hvp, instead of being stuck on the
+            # gradient-outer-product/Fisher proxy every prior candidate used.
+            # A candidate that only wants a plain gradient still works: call
+            # closure() once and use torch.autograd.grad on the result.
+            def closure():
+                return torch.nn.functional.cross_entropy(model(x), y)
+
+            loss = opt.step(closure)
 
             loss_value = float(loss.detach())
             if math.isnan(loss_value) or math.isinf(loss_value):

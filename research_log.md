@@ -730,3 +730,45 @@ around it. Re-baselining both chains below.
 }
 ```
 
+## 20260730T032904Z — discarded (worse_loss)
+
+```json
+{
+  "timestamp": "20260730T032904Z",
+  "benchmark": "mnist",
+  "status": "discarded",
+  "decision": "DISCARD",
+  "reason": "worse_loss",
+  "seed_results": [
+    {
+      "seed": 0,
+      "result": "OK",
+      "loss": 0.5127898055594414,
+      "n_steps": 2531
+    },
+    {
+      "seed": 1,
+      "result": "OK",
+      "loss": 0.41735496723301824,
+      "n_steps": 2712
+    },
+    {
+      "seed": 2,
+      "result": "OK",
+      "loss": 0.43211648171436534,
+      "n_steps": 2657
+    },
+    {
+      "seed": 3,
+      "result": "OK",
+      "loss": 0.510662011976747,
+      "n_steps": 2647
+    }
+  ],
+  "mean_loss": 0.46823081662089305,
+  "baseline_mean": 0.12842385994254074,
+  "noise_margin_rel": 0.05,
+  "snapshot": null
+}
+```
+
