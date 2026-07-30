@@ -2,7 +2,10 @@
 
 Fixed-budget optimizer search over src/autoresearch/candidate_optimizer.py,
 driven by scripts/run_experiment.py. Each entry is one experiment attempt:
-2 seeds x 90s wall-clock each, against scripts/sanity_mnist.py's model/data.
+4 seeds x 90s wall-clock each, against scripts/sanity_mnist.py's model/data
+(bumped from 2 seeds 20260729T22xxxxZ, harness noise-floor fix below).
+Per-seed loss is a deterministic full-test-set eval pass at budget end (was
+a trailing train-batch average -- the actual source of the noise floor).
 
 `status: committed` entries are candidates that beat the prior committed
 mean and whose optimizer was snapshotted to src/autoresearch/history/.
@@ -603,6 +606,127 @@ EXCEPTION, TIMEOUT, possibly combined).
   "baseline_mean": 0.012371516600251199,
   "snapshot": "src/autoresearch/history/candidate_20260729T224234Z.py",
   "note": "Manual sync, not a harness-measured run: the cifar chain just committed conv-layer Kronecker whitening (mean_loss 0.6509 vs 0.6733, see the cifar-tagged entry above), which is a no-op on mnist (no 4D params exist there -- the p.dim() in (2,4) branch still only ever triggers for dim==2). Syncing the mnist chain to the same file so a future mnist DISCARD does not revert-and-strip a capability that only cifar can exercise but that is harmless to carry on mnist. mean_loss carried forward unchanged, same reasoning as the 20260729T222752Z sync entry."
+}
+```
+
+## 20260730T030536Z — harness fix (noise floor)
+
+Investigated the TOP PRIORITY item flagged at session start: same committed
+candidate, same seeds, three reruns gave mean_loss 0.0124/0.0151/0.0211.
+Systematic root-cause investigation (not just tuning):
+
+**Ruled out: nondeterministic multithreaded CPU BLAS.** The original
+hypothesis was reduction-order nondeterminism in matmul/eigh. Tested
+directly: (1) `torch.linalg.eigh` on a 2048x2048 symmetric matrix (cifar's R
+scale) -- bit-identical hash across 3 runs at this machine's default thread
+count (6). (2) A full training run through `CandidateOptimizer` (eigh +
+matmul + Adam bookkeeping) for a *fixed* step count (500, then 3000 steps,
+same seed) -- bit-identical loss trajectory hash across repeated runs, with
+or without `torch.use_deterministic_algorithms`. CPU BLAS is not the source
+of noise on this machine/build; that part of the original hypothesis is
+false and the `torch.use_deterministic_algorithms(True)` / `OMP_NUM_THREADS`
+fix proposed for it would have done nothing.
+
+**Confirmed root cause: wall-clock-budget step-count jitter, amplified by a
+tiny sampling window in the metric.** `run_worker` trains under a fixed
+*wall-clock* budget (by design, per program.md -- comparable across
+candidates with different per-step cost). Directly measured: 3 back-to-back
+runs of identical code/seed at a 10s budget produced 343/364/380 steps --
+~10% jitter from ordinary OS/process timing variance, not FP nondeterminism.
+The old metric averaged only the *last 10 train minibatches* to estimate
+"loss at the end of the budget" -- a ~2560-example sample that lands on
+whichever few random minibatches happen to fall in the tail. Combined with
+step-count jitter shifting which minibatches that is, this is what produced
+the large swings, not FP noise.
+
+**Fix (scripts/run_experiment.py, not candidate_optimizer.py -- this is a
+harness bug, not an optimizer property):**
+1. Replaced the trailing-10-train-batch average with a deterministic full
+   test-set eval pass (shuffle=False, `torch.no_grad()`, `model.eval()`) at
+   the end of training. This has zero minibatch-sampling noise -- the only
+   remaining variance is genuine (different training trajectories from
+   different step counts / seeds), not an artifact of when the clock cut
+   training off. mutant-check per program.md's seed-knowledge rule: an
+   eval-based metric cannot get *more* optimistic as training gets worse in
+   the way the old tail-average could (e.g. lucky easy minibatches at the
+   tail) -- it's evaluated over the same fixed, full test set every time.
+2. Bumped `SEEDS` from 2 to 4 for statistical power (more seeds shrinks the
+   remaining genuine-trajectory variance's effect on the mean without
+   touching the bias).
+3. Added `NOISE_MARGIN_REL = 0.05`: KEEP now requires
+   `mean_loss < baseline_mean * (1 - NOISE_MARGIN_REL)`, not a bare `<`.
+   Near-misses that are numerically lower but inside the margin are logged
+   as `discarded/within_noise_band`, distinct from `worse_loss`, so future
+   review can see how often "improvements" were actually noise.
+
+**Noise-band calibration (n=12: 3 repeats x 4 seeds, 90s budget, unchanged
+committed mnist candidate, new eval-metric):** 4-seed-mean values across the
+3 repeats: 0.13352 / 0.13083 / 0.12842 (mean 0.13092, sample stdev ~0.0026,
+~2% relative; range ~3.9% relative). `NOISE_MARGIN_REL=0.05` is set slightly
+above the observed range as a safety margin over this small (n=3) repeat
+count -- revisit if a future near-miss result suggests it's still too tight
+or looser than needed. CIFAR was not separately calibrated (180s budget
+makes repeat calibration expensive); the fix and relative-margin policy are
+shared across benchmarks on the assumption that the jitter mechanism is
+generic, but cifar's margin should be checked empirically once a few more
+cifar attempts have accumulated.
+
+**Consequence: old baseline_mean values are not comparable to anything
+measured from now on** -- the metric itself changed (eval loss on held-out
+test set vs. an overfit trailing-train-batch snapshot), not just the noise
+around it. Re-baselining both chains below.
+
+```json
+{
+  "timestamp": "20260730T030536Z",
+  "status": "harness_fix",
+  "decision": "N/A",
+  "reason": "noise_floor_root_cause_and_fix",
+  "note": "scripts/run_experiment.py changed: eval-based per-seed loss metric (was trailing-10-train-batch average), SEEDS 2->4, NOISE_MARGIN_REL=0.05 relative-improvement gate on KEEP. Root cause confirmed empirically: wall-clock step-count jitter (343/364/380 steps for identical seed/code at a 10s budget) landing on different minibatches in the old tail-average metric. CPU BLAS/eigh nondeterminism hypothesis tested and ruled out (bit-identical fixed-step reruns, with and without determinism flags)."
+}
+```
+
+## 20260730T030536Z — committed (baseline, mnist re-baseline post-harness-fix)
+
+```json
+{
+  "timestamp": "20260730T030536Z",
+  "benchmark": "mnist",
+  "status": "committed",
+  "decision": "KEEP",
+  "reason": "baseline",
+  "seed_results": [
+    {"seed": 0, "result": "OK", "loss": 0.12739961699480773, "n_steps": 3030},
+    {"seed": 1, "result": "OK", "loss": 0.1286451143634622, "n_steps": 3071},
+    {"seed": 2, "result": "OK", "loss": 0.1297797101931792, "n_steps": 3055},
+    {"seed": 3, "result": "OK", "loss": 0.12787099821871378, "n_steps": 3058}
+  ],
+  "mean_loss": 0.12842385994254073,
+  "baseline_mean": null,
+  "snapshot": "src/autoresearch/history/candidate_20260730T030536Z.py",
+  "note": "Manual re-baseline, not a fresh code change: candidate_optimizer.py is byte-identical to the last mnist commit (20260729T224234Z) -- only the measurement harness changed (see the harness-fix entry immediately above). Old baseline_mean=0.012371516600251199 was measured under the noisy trailing-train-batch metric and is not comparable. This value is one of the 3 calibration repeats (seeds 0-3, the tightest step-count spread of the three) run under the new eval-based/4-seed harness; see the harness-fix entry for the full n=12 calibration and derived noise margin. All future mnist KEEP/DISCARD decisions compare against this."
+}
+```
+
+## 20260730T031920Z — committed (baseline, cifar re-baseline post-harness-fix)
+
+```json
+{
+  "timestamp": "20260730T031920Z",
+  "benchmark": "cifar",
+  "status": "committed",
+  "decision": "KEEP",
+  "reason": "baseline",
+  "seed_results": [
+    {"seed": 0, "result": "OK", "loss": 1.1850359320640564, "n_steps": 1567},
+    {"seed": 1, "result": "OK", "loss": 1.2454985871911048, "n_steps": 1490},
+    {"seed": 2, "result": "OK", "loss": 1.1544815436005593, "n_steps": 1527},
+    {"seed": 3, "result": "OK", "loss": 1.1067923292517663, "n_steps": 1531}
+  ],
+  "mean_loss": 1.1729520980268717,
+  "baseline_mean": null,
+  "snapshot": "src/autoresearch/history/candidate_20260730T031920Z.py",
+  "note": "Manual re-baseline, not a fresh code change: candidate_optimizer.py is byte-identical to the last cifar commit (20260729T223539Z). Old baseline_mean=0.6732918754220009 was measured under the noisy 2-seed trailing-train-batch metric (see harness-fix entry, 20260730T030536Z) and is not comparable -- both the metric (train-tail vs full-test-set eval) and the loss's own meaning changed (held-out generalization loss is expected to read higher than an overfit trailing-train snapshot, same direction and reason mnist's baseline moved from 0.0124 to 0.1284). Not separately noise-calibrated (4x180s repeats would cost ~48min); reusing the mnist-derived NOISE_MARGIN_REL=0.05 under the assumption the jitter mechanism is generic across benchmarks -- flagged in the harness-fix entry as worth checking once more cifar attempts accumulate."
 }
 ```
 

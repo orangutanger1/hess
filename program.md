@@ -94,15 +94,19 @@ Work on a dedicated branch (e.g. `autoresearch/jul29` or
 `autoresearch/jul29-gpu0`).
 
 `scripts/run_experiment.py` is the fixed harness -- it already does most of
-the bookkeeping a generic loop would need you to do by hand: it runs 2 seeds
-x 90s wall-clock each against `scripts/sanity_mnist.py`'s model/data, kills a
-seed that exceeds 180s (2x budget) and records it as `TIMEOUT`, compares the
-mean loss to the last committed baseline, appends a json entry to
-`research_log.md`, snapshots the candidate to `src/autoresearch/history/` on
-KEEP, and **reverts `src/autoresearch/candidate_optimizer.py` to the last
-committed content on its own** if the result is DISCARD/DIVERGED/EXCEPTION/
-TIMEOUT. You do not need to hand-manage a timeout or revert the file
-yourself -- the script already did it by the time it exits.
+the bookkeeping a generic loop would need you to do by hand: it runs 4 seeds
+x 90s wall-clock each against `scripts/sanity_mnist.py`'s model/data (bumped
+from 2 seeds as part of the harness noise-floor fix -- see research_log.md;
+per-seed loss is now a deterministic full-test-set eval pass, not a trailing
+train-batch average, and KEEP requires beating baseline by more than
+`NOISE_MARGIN_REL`, not a bare `<`), kills a seed that exceeds 180s (2x
+budget) and records it as `TIMEOUT`, compares the mean loss to the last
+committed baseline, appends a json entry to `research_log.md`, snapshots the
+candidate to `src/autoresearch/history/` on KEEP, and **reverts
+`src/autoresearch/candidate_optimizer.py` to the last committed content on
+its own** if the result is DISCARD/DIVERGED/EXCEPTION/TIMEOUT. You do not
+need to hand-manage a timeout or revert the file yourself -- the script
+already did it by the time it exits.
 
 LOOP FOREVER:
 

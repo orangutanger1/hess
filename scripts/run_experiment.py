@@ -2,10 +2,17 @@
 
 Trains src/autoresearch/candidate_optimizer.py's CandidateOptimizer on a
 benchmark's model/data/eval setup, for a fixed wall-clock time per seed
-(default 90s, override with --budget-seconds), across 2 seeds. Compares the
-mean of the two seed losses against the last-committed best *for that
-benchmark* in research_log.md and either keeps (snapshotting
-candidate_optimizer.py under src/autoresearch/history/) or discards
+(default 90s, override with --budget-seconds), across 4 seeds (bumped from 2
+as part of the harness noise-floor fix, see research_log.md). The reported
+per-seed loss is a deterministic full-test-set eval pass at the end of
+training, not a trailing-train-batch average (the latter was the harness's
+own measurement-noise bug: the wall-clock budget makes step count jitter
+run-to-run even for identical code/seed, and averaging a handful of recent
+train minibatches turned that jitter into large loss swings). Compares the
+mean of the seed losses against the last-committed best *for that
+benchmark* in research_log.md, requiring more than NOISE_MARGIN_REL relative
+improvement (not a bare `<`) before keeping (snapshotting
+candidate_optimizer.py under src/autoresearch/history/); otherwise discards
 (reverting candidate_optimizer.py to the last committed snapshot for that
 benchmark). Every attempt is logged, tagged with which benchmark it ran.
 
@@ -53,8 +60,16 @@ from sanity_mnist import build_model as build_mnist_model
 from sanity_cifar import build_model as build_cifar_model
 from autoresearch.candidate_optimizer import CandidateOptimizer
 
-SEEDS = (0, 1)
+SEEDS = (0, 1, 2, 3)
 BUDGET_SECONDS = 90
+# Measured empirically (research_log.md, harness noise-floor fix): 3 repeats
+# of the unchanged committed mnist candidate at the real 4-seed/90s budget,
+# under the eval-based metric above, gave 4-seed means 0.13352/0.13083/0.12842
+# -- a ~4% relative spread from timing jitter alone (n_steps varies run to
+# run even for identical code/seed; see run_worker's eval-metric comment).
+# A bare `mean_loss < baseline_mean` would flag noise as "improved" a
+# meaningful fraction of the time. Require improvement to clear this margin.
+NOISE_MARGIN_REL = 0.05
 TIMEOUT_SECONDS = 2 * BUDGET_SECONDS
 DEFAULT_BENCHMARK = "mnist"
 
@@ -81,7 +96,8 @@ LOG_HEADER = """# Autoresearch log
 
 Fixed-budget optimizer search over src/autoresearch/candidate_optimizer.py,
 driven by scripts/run_experiment.py. Each entry is one experiment attempt:
-2 seeds x 90s wall-clock each, against scripts/sanity_mnist.py's model/data.
+4 seeds x 90s wall-clock each, against scripts/sanity_mnist.py's model/data.
+Per-seed loss is a deterministic full-test-set eval pass at budget end.
 
 `status: committed` entries are candidates that beat the prior committed
 mean and whose optimizer was snapshotted to src/autoresearch/history/.
@@ -152,10 +168,35 @@ def run_worker(seed, budget_seconds, lr, batch_size, device_name, result_path,
             _write_result(result_path, result)
             return
 
-        tail = losses[-10:]
+        # Root-cause fix for the harness noise floor (see research_log.md):
+        # the wall-clock budget makes n_steps jitter run-to-run even for an
+        # unchanged candidate + seed (confirmed: 343/364/380 steps at a 10s
+        # budget on this machine -- pure timing jitter, not FP nondeterminism;
+        # fixed-step reruns of the same code are bit-identical, see the
+        # 20260729T noise-floor investigation). Averaging the last 10 TRAIN
+        # minibatches made the reported loss a tiny, sampling-noisy statistic
+        # that lands on whichever few random minibatches happen to fall in
+        # the tail -- amplifying that step-count jitter into large loss
+        # swings. A deterministic eval pass over the full (fixed, unshuffled)
+        # test split has zero minibatch-sampling noise: the only remaining
+        # variance is genuine (different training trajectories), not an
+        # artifact of when the wall clock happened to cut off training.
+        model.eval()
+        eval_ds = bench["dataset_cls"](
+            "data", train=False, download=True, **bench["dataset_kwargs"]
+        )
+        eval_loader = torch.utils.data.DataLoader(
+            eval_ds, batch_size=batch_size, shuffle=False
+        )
+        eval_losses = []
+        with torch.no_grad():
+            for x, y in eval_loader:
+                x, y = x.to(device), y.to(device)
+                eval_losses.append(float(torch.nn.functional.cross_entropy(model(x), y)))
+
         result["result"] = "OK"
         result["n_steps"] = step
-        result["loss"] = sum(tail) / len(tail)
+        result["loss"] = sum(eval_losses) / len(eval_losses)
         _write_result(result_path, result)
     except Exception:
         result["result"] = "EXCEPTION"
@@ -322,7 +363,8 @@ def main_experiment(lr, batch_size, device, budget_seconds=BUDGET_SECONDS,
 
     if all_ok:
         mean_loss = sum(r["loss"] for r in seed_results) / len(seed_results)
-        if mean_loss < baseline_mean:
+        threshold = baseline_mean * (1 - NOISE_MARGIN_REL)
+        if mean_loss < threshold:
             snapshot = save_snapshot(timestamp)
             entry = {
                 "timestamp": timestamp,
@@ -333,26 +375,34 @@ def main_experiment(lr, batch_size, device, budget_seconds=BUDGET_SECONDS,
                 "seed_results": cleaned,
                 "mean_loss": mean_loss,
                 "baseline_mean": baseline_mean,
+                "noise_margin_rel": NOISE_MARGIN_REL,
                 "snapshot": snapshot,
             }
             append_entry(entry)
-            print(f"KEEP: mean_loss={mean_loss:.4f} < baseline {baseline_mean:.4f}; snapshot={snapshot}")
+            print(f"KEEP: mean_loss={mean_loss:.4f} < threshold {threshold:.4f} "
+                  f"(baseline {baseline_mean:.4f} - {NOISE_MARGIN_REL:.0%} margin); snapshot={snapshot}")
             return 0
         else:
+            # Distinguish "looked numerically better but within measured
+            # noise" from "actually worse" -- both discard, but conflating
+            # them would hide how often near-misses are noise, not signal.
+            reason = "within_noise_band" if mean_loss < baseline_mean else "worse_loss"
             revert_to_snapshot(last["snapshot"])
             entry = {
                 "timestamp": timestamp,
                 "benchmark": benchmark,
                 "status": "discarded",
                 "decision": "DISCARD",
-                "reason": "worse_loss",
+                "reason": reason,
                 "seed_results": cleaned,
                 "mean_loss": mean_loss,
                 "baseline_mean": baseline_mean,
+                "noise_margin_rel": NOISE_MARGIN_REL,
                 "snapshot": None,
             }
             append_entry(entry)
-            print(f"DISCARD (worse_loss): mean_loss={mean_loss:.4f} >= baseline {baseline_mean:.4f}; reverted")
+            print(f"DISCARD ({reason}): mean_loss={mean_loss:.4f} >= threshold {threshold:.4f} "
+                  f"(baseline {baseline_mean:.4f} - {NOISE_MARGIN_REL:.0%} margin); reverted")
             return 0
     else:
         reason = ",".join(sorted({s for s in statuses if s != "OK"}))
